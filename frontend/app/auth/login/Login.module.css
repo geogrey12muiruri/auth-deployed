@@ -1,0 +1,44 @@
+/* Scoped input fields and other selectors to the local scope */
+.input {
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    justify-content: center;
+}
+
+.input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+}
+
+.formGroup {
+    margin-bottom: 15px;
+    
+}
+
+.submitButton {
+    padding: 12px;
+    background-color: #0070f3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.submitButton:hover {
+    background-color: #005bb5;
+}
+
+.submitButton:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.error {
+    color: #ff0000;
+    font-size: 14px;
+    margin-bottom: 10px;
+}

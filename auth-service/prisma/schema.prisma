@@ -1,0 +1,78 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  TRAINEE
+  TRAINER
+  HOD
+  ADMIN
+  REGISTRAR
+  STAFF
+  SUPER_ADMIN
+  MANAGEMENT_REP
+  AUDITOR
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  role          UserRole
+  verified      Boolean   @default(false)
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  token     String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+}
+
+model Tenant {
+  id                 String    @id @default(uuid())
+  name               String    @unique
+  domain             String    @unique
+  logoUrl            String?
+  address            String?
+  city               String?
+  country            String?
+  phone              String?
+  email              String?
+  type               InstitutionType
+  accreditationNumber String?
+  establishedYear    Int?
+  timezone           String?
+  currency           String?
+  status             InstitutionStatus
+  createdBy          String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  users              User[]
+}
+
+enum InstitutionType {
+  UNIVERSITY
+  COLLEGE
+  SCHOOL
+  INSTITUTE
+  OTHER
+}
+
+enum InstitutionStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+}

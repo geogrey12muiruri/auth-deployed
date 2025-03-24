@@ -1,0 +1,22 @@
+# Ignore node_modules directory (we'll install dependencies during build)
+node_modules/
+
+# Ignore environment variable files
+.env
+
+# Ignore log files
+*.log
+
+# Ignore build or dist directories
+build/
+dist/
+
+# Ignore the Dockerfile
+Dockerfile
+
+# Ignore the .dockerignore itself
+.dockerignore
+
+# Ignore any other non-essential files (e.g., IDE files)
+.vscode/
+.idea/

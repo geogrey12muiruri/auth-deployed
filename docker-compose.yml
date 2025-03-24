@@ -1,0 +1,214 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./wait-for-services.sh:/docker-entrypoint.d/wait-for-services.sh
+    ports:
+      - "80:80"
+    depends_on:
+      - auth-service
+      - tenant-service
+      - user-service
+      - audit-service
+      - frontend
+    networks:
+      - ums-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://nginx
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth-service
+      - tenant-service
+      - user-service
+      - audit-service
+    networks:
+      - ums-network
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres-auth:5432/umsdb?schema=auth
+      - REDIS_URL=redis://redis:6379
+      - EMAIL=greggambugua@gmail.com
+      - EMAIL_PASSWORD=wpsy asog klte hpur
+      - ACCESS_TOKEN_SECRET=a8f2b91a87c3a6b7e4d8f19ab6c4e5e2f3d6c9b1d2a8e7f6a4b3c9d8e1f2g5h6
+      - REFRESH_TOKEN_SECRET=b7d9e3c6f8a5b2c4d1e9f7a6b3c8e2f5g1d4h9a7e3c2b6f5g8d1e4c3b9a7f2g6
+      - CLIENT_URL=http://localhost:3000
+      - TENANT_SERVICE_URL=http://tenant-service:5001
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - ums-network
+
+  tenant-service:
+    build:
+      context: ./tenant-service
+      dockerfile: Dockerfile
+    container_name: tenant-service
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres-tenant:5432/umsdb?schema=tenant
+      - REDIS_URL=redis://redis:6379
+      - ACCESS_TOKEN_SECRET=a8f2b91a87c3a6b7e4d8f19ab6c4e5e2f3d6c9b1d2a8e7f6a4b3c9d8e1f2g5h6
+      - AUTH_SERVICE_URL=http://auth-service:5000
+    ports:
+      - "5001:5001"
+    depends_on:
+      postgres-tenant:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      auth-service:
+        condition: service_started
+    networks:
+      - ums-network
+
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres-user:5432/umsdb?schema=user
+      - REDIS_URL=redis://redis:6379
+      - ACCESS_TOKEN_SECRET=a8f2b91a87c3a6b7e4d8f19ab6c4e5e2f3d6c9b1d2a8e7f6a4b3c9d8e1f2g5h6
+    ports:
+      - "5005:5005"
+    depends_on:
+      postgres-user:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - ums-network
+
+  audit-service:
+    build:
+      context: ./audit-service
+      dockerfile: Dockerfile
+    container_name: audit-service
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres-audit:5432/umsdb?schema=audit
+      - ACCESS_TOKEN_SECRET=a8f2b91a87c3a6b7e4d8f19ab6c4e5e2f3d6c9b1d2a8e7f6a4b3c9d8e1f2g5h6
+      - PORT=5004
+    ports:
+      - "5004:5004"
+    depends_on:
+      postgres-audit:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+    networks:
+      - ums-network
+
+  postgres-auth:
+    image: postgres:15
+    container_name: postgres-auth
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=umsdb
+    volumes:
+      - postgres-auth-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d umsdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ums-network
+
+  postgres-tenant:
+    image: postgres:15
+    container_name: postgres-tenant
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=umsdb
+    volumes:
+      - postgres-tenant-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d umsdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ums-network
+
+  postgres-user:
+    image: postgres:15
+    container_name: postgres-user
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=umsdb
+    volumes:
+      - postgres-user-data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d umsdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ums-network
+
+  postgres-audit:
+    image: postgres:15
+    container_name: postgres-audit
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=umsdb
+    volumes:
+      - postgres-audit-data:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d umsdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ums-network
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - ums-network
+
+networks:
+  ums-network:
+    driver: bridge
+
+volumes:
+  postgres-auth-data:
+  postgres-tenant-data:
+  postgres-user-data:
+  postgres-audit-data:
