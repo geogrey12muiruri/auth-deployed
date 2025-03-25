@@ -25,8 +25,8 @@ model User {
   password      String
   role          UserRole
   verified      Boolean   @default(false)
-  tenantId      String
-  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  tenantId      String    // Store tenantId as a plain string
+  tenantName    String    // Add tenantName to store the tenant's name
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   refreshTokens RefreshToken[]
@@ -41,27 +41,7 @@ model RefreshToken {
   createdAt DateTime  @default(now())
 }
 
-model Tenant {
-  id                 String    @id @default(uuid())
-  name               String    @unique
-  domain             String    @unique
-  logoUrl            String?
-  address            String?
-  city               String?
-  country            String?
-  phone              String?
-  email              String?
-  type               InstitutionType
-  accreditationNumber String?
-  establishedYear    Int?
-  timezone           String?
-  currency           String?
-  status             InstitutionStatus
-  createdBy          String
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  users              User[]
-}
+// Remove the Tenant model
 
 enum InstitutionType {
   UNIVERSITY

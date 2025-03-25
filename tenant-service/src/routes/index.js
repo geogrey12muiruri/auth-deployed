@@ -11,5 +11,6 @@ router.delete('/superadmin/tenants/:tenantId', authMiddleware, tenantController.
 
 // Public routes
 router.get('/tenants', tenantController.getAllTenants);
+router.get('/tenants/:tenantId', tenantController.getTenantById);
 
 module.exports = router;

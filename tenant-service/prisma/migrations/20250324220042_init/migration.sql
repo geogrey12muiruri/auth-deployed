@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "UserRole" AS ENUM ('STUDENT', 'LECTURER', 'HOD', 'ADMIN', 'REGISTRAR', 'STAFF', 'SUPER_ADMIN', 'AUDITOR_GENERAL', 'AUDITOR');
+CREATE TYPE "UserRole" AS ENUM ('TRAINEE', 'TRAINER', 'HOD', 'ADMIN', 'REGISTRAR', 'STAFF', 'SUPER_ADMIN', 'MANAGEMENT_REP', 'AUDITOR');
 
 -- CreateEnum
 CREATE TYPE "InstitutionType" AS ENUM ('UNIVERSITY', 'COLLEGE', 'SCHOOL', 'INSTITUTE', 'OTHER');
@@ -24,7 +24,7 @@ CREATE TABLE "Tenant" (
     "establishedYear" INTEGER,
     "timezone" TEXT,
     "currency" TEXT,
-    "status" "InstitutionStatus" NOT NULL,
+    "status" "InstitutionStatus" NOT NULL DEFAULT 'PENDING',
     "createdBy" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -62,10 +62,16 @@ CREATE TABLE "User" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Tenant_name_key" ON "Tenant"("name");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Tenant_domain_key" ON "Tenant"("domain");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Tenant_email_key" ON "Tenant"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Department_code_key" ON "Department"("code");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Department_headId_key" ON "Department"("headId");

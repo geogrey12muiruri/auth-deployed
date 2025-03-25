@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const response = await axios.post('http://localhost:5000/api/login', { email, password });
-      setUser(response.data.user);
+      setUser({ ...response.data.user, tenantName: response.data.user.tenantId }); // Include tenantName
       setToken(response.data.accessToken); // Set token
       localStorage.setItem('accessToken', response.data.accessToken);
       localStorage.setItem('refreshToken', response.data.refreshToken);

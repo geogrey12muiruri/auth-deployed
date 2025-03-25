@@ -12,6 +12,7 @@
   "type": "commonjs",
   "dependencies": {
     "@prisma/client": "^5.0.0",
+    "axios": "^1.8.4",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
@@ -19,6 +20,6 @@
     "kafkajs": "^2.2.4"
   },
   "devDependencies": {
-    "prisma": "^5.0.0"
+    "prisma": "^5.22.0"
   }
 }

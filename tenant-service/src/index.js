@@ -1,7 +1,7 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { execSync } = require('child_process');
-const routes = require('./src/routes');
+const routes = require('./routes');
 const cors = require('cors'); // Import the CORS middleware
 require('dotenv').config();
 
@@ -16,6 +16,22 @@ app.use('/api', routes); // Ensure the routes are prefixed with /api
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ message: 'Tenant Service is running' });
+});
+
+// GET: Validate Tenant by ID
+app.get("/api/tenants/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const tenant = await prisma.tenant.findUnique({ where: { id } });
+    if (!tenant) {
+      return res.status(404).json({ exists: false });
+    }
+    res.json({ exists: true });
+  } catch (error) {
+    console.error("Error validating tenant:", error.message);
+    res.status(500).json({ error: "Failed to validate tenant" });
+  }
 });
 
 // Error handling middleware

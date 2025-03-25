@@ -42,7 +42,6 @@ const REQUIRED_ROLES = [
   'AUDITOR',
 ];
 
-// Create tenant
 const createTenant = async (req, res) => {
   const {
     name,
@@ -98,6 +97,7 @@ const createTenant = async (req, res) => {
 
   let tenant;
   try {
+    // Create the tenant in the database
     tenant = await prisma.tenant.create({
       data: {
         name,
@@ -111,7 +111,7 @@ const createTenant = async (req, res) => {
         email,
         type: type.toUpperCase(),
         accreditationNumber,
-        establishedYear,
+        establishedYear: parseInt(establishedYear, 10),
         timezone,
         currency,
         status: status || 'PENDING',
@@ -119,40 +119,43 @@ const createTenant = async (req, res) => {
       },
     });
 
+    // Associate users with the tenant in the tenant-service database
     const createdUsers = [];
     for (const userData of users) {
-      const { email, role, firstName, lastName, password } = userData;
+      const { email, role, firstName, lastName } = userData;
 
-      const authResponse = await axios.post(
-        `${process.env.AUTH_SERVICE_URL || 'http://auth-service:5000'}/api/auth/register`,
-        { email, password, role, tenantId: tenant.id, firstName, lastName },
-        { headers: { Authorization: req.headers.authorization } }
-      );
+      // Create the user in the tenant-service database
+      const user = await prisma.user.create({
+        data: {
+          email,
+          role: role.toUpperCase(),
+          firstName,
+          lastName,
+          tenantId: tenant.id,
+        },
+      });
 
-      // Note: We’re not creating users directly in tenant-service’s Prisma anymore,
-      // relying on auth-service to handle it. We’ll fetch the created user instead.
-      const user = { email, role, firstName, lastName, tenantId: tenant.id };
       createdUsers.push(user);
     }
 
+    // Create departments and associate them with the tenant
     const createdDepartments = [];
     for (const deptData of departments) {
       const { name, code, hodEmail } = deptData;
+
+      // Find the HOD in the created users
       const hod = createdUsers.find((u) => u.email === hodEmail && u.role.toUpperCase() === 'HOD');
       if (!hod) {
-        throw new Error(`HOD ${hodEmail} not found among created users`);
+        throw new Error(`HOD ${hodEmail} not found or does not have the HOD role`);
       }
 
-      // Fetch the HOD’s ID from auth-service or user-service if needed
-      const hodUser = await prisma.user.findUnique({ where: { email: hodEmail } });
-      if (!hodUser) throw new Error(`HOD ${hodEmail} not found in database`);
-
+      // Create the department in the database
       const department = await prisma.department.create({
         data: {
           name,
           code,
           tenantId: tenant.id,
-          headId: hodUser.id,
+          headId: hod.id, // Associate the HOD with the department
         },
       });
 
@@ -165,13 +168,9 @@ const createTenant = async (req, res) => {
     if (tenant) {
       await prisma.tenant.delete({ where: { id: tenant.id } }).catch(() => {});
     }
-    if (error.response) {
-      return res.status(error.response.status).json({ error: error.response.data.message || 'Auth service error' });
-    }
     res.status(500).json({ error: `Server error: ${error.message}` });
   }
 };
-
 // Get all tenants
 const getAllTenants = async (req, res) => {
   try {
@@ -230,11 +229,38 @@ const createUser = async (req, res) => {
   }
 };
 
+// tenant-service/src/controllers/tenant.controller.js
+const getTenantById = async (req, res) => {
+  const { tenantId } = req.params;
+
+  try {
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
+
+    res.status(200).json(tenant);
+  } catch (error) {
+    console.error('Error fetching tenant:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const getRoles = async (req, res) => {
+  try {
+    const roles = Object.keys(prisma.enums.UserRole); // Fetch roles from Prisma schema
+    res.status(200).json(roles);
+  } catch (error) {
+    console.error("Error fetching roles:", error);
+    res.status(500).json({ error: "Failed to fetch roles" });
+  }
+};
+
 module.exports = {
   createTenant: [authenticateToken, restrictToSuperAdmin, createTenant],
-  getAllTenants: [authenticateToken, restrictToSuperAdmin, getAllTenants],
+  getAllTenants, 
+  getTenantById,
   deleteTenant: [authenticateToken, restrictToSuperAdmin, deleteTenant],
   createUser: [authenticateToken, createUser],
+  getRoles,
 };
 
 // Cleanup on shutdown

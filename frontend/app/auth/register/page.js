@@ -7,8 +7,9 @@ import { useRouter } from 'next/navigation'; // Correct import for client-side r
 export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('STUDENT'); // Default role
+  const [role, setRole] = useState('TRAINEE'); // Default role
   const [tenantId, setTenantId] = useState(''); // Updated to use tenantId
+  const [tenantName, setTenantName] = useState(''); // New state for tenantName
   const [tenants, setTenants] = useState([]); // State to store fetched tenants
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
@@ -32,7 +33,7 @@ export default function Register() {
     // Fetch tenants when the component mounts
     const fetchTenants = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/tenants');
+        const response = await axios.get('http://localhost:5001/api/tenants');
         setTenants(response.data);
       } catch (error) {
         console.error('Error fetching tenants:', error);
@@ -42,13 +43,28 @@ export default function Register() {
     fetchTenants();
   }, []);
 
+  const handleTenantChange = (e) => {
+    const selectedTenantId = e.target.value;
+    setTenantId(selectedTenantId);
+
+    // Find the tenant name based on the selected tenantId
+    const selectedTenant = tenants.find((tenant) => tenant.id === selectedTenantId);
+    setTenantName(selectedTenant ? selectedTenant.name : '');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       if (step === 1) {
         // Post request to the backend for registration
-        const response = await axios.post('http://localhost:5000/api/register', { email, password, role, tenantId });
+        const response = await axios.post('http://localhost:5000/api/register', {
+          email,
+          password,
+          role,
+          tenantId,
+          tenantName, // Include tenantName in the payload
+        });
         setStep(2); // Move to OTP verification step
       } else if (step === 2) {
         // Post request to the backend for OTP verification
@@ -130,15 +146,12 @@ export default function Register() {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                   required
                 >
-                  <option value="STUDENT">Student</option>
-                  <option value="LECTURER">Lecturer</option>
-                  <option value="HOD">Head of Department</option>
-                  <option value="ADMIN">Admin</option>
-                  <option value="REGISTRAR">Registrar</option>
-                  <option value="STAFF">Staff</option>
                   <option value="SUPER_ADMIN">Super Admin</option>
-                  <option value="AUDITOR_GENERAL">Auditor General</option>
-                  <option value="AUDITOR">AUDITOR</option>
+                  <option value="ADMIN">Admin</option>
+                  <option value="TRAINER">Trainer</option>
+                  <option value="TRAINEE">Trainee</option>
+                  <option value="AUDITOR">Auditor</option>
+                  <option value="MANAGEMENT_REP">Management Rep</option>
                 </select>
               </div>
 
@@ -147,7 +160,7 @@ export default function Register() {
                 <select
                   id="tenantId"
                   value={tenantId}
-                  onChange={(e) => setTenantId(e.target.value)}
+                  onChange={handleTenantChange} // Use the new handler
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                   required
                 >

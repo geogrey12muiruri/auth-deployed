@@ -4,6 +4,7 @@ const express = require("express");
 const { PrismaClient } = require("@prisma/client");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
+const axios = require("axios"); // Add axios for HTTP requests
 
 const app = express();
 const prisma = new PrismaClient();
@@ -12,12 +13,11 @@ const port = process.env.PORT || 5004;
 app.use(express.json());
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: "*", // Allow all origins
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-
 // Middleware to authenticate and extract user info from JWT
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
@@ -51,13 +51,24 @@ const restrictToManagementRep = (req, res, next) => {
   }
   next();
 };
-
-// POST: Create Audit Program with Audits
 app.post("/api/audit-programs", authenticateToken, restrictToManagementRep, async (req, res) => {
-  const { name, auditProgramObjective, startDate, endDate, audits } = req.body;
-  const { userId, tenantId } = req.user;
+  const { name, auditProgramObjective, startDate, endDate, audits, tenantId, tenantName } = req.body;
+  const { userId } = req.user;
 
   try {
+    if (!Array.isArray(audits)) {
+      return res.status(400).json({ error: "Audits must be an array" });
+    }
+
+    // Preprocess audits to map `specificAuditObjectives` to `specificAuditObjective`
+    const sanitizedAudits = audits.map((audit) => ({
+      id: audit.id,
+      scope: audit.scope, // Already an array
+      specificAuditObjective: audit.specificAuditObjectives, // Map plural to singular
+      methods: audit.methods, // Already an array
+      criteria: audit.criteria, // Already an array
+    }));
+
     const auditProgram = await prisma.auditProgram.create({
       data: {
         id: `AP-${Date.now()}`,
@@ -67,26 +78,21 @@ app.post("/api/audit-programs", authenticateToken, restrictToManagementRep, asyn
         startDate: new Date(startDate),
         endDate: new Date(endDate),
         tenantId,
+        tenantName,
         createdBy: userId,
         audits: {
-          create: audits.map((audit) => ({
-            id: audit.id || `A-${Date.now() + Math.random()}`,
-            scope: audit.scope,
-            specificAuditObjective: audit.specificAuditObjective, // Array
-            methods: audit.methods, // Array
-            criteria: audit.criteria, // Array
-          })),
+          create: sanitizedAudits, // Use the sanitized audits
         },
       },
       include: { audits: true },
     });
+
     res.status(201).json(auditProgram);
   } catch (error) {
-    console.error("Error creating audit program:", error);
+    console.error("Error creating audit program:", error.message, error.stack);
     res.status(500).json({ error: "Failed to create audit program" });
   }
 });
-
 // GET: Fetch All Audit Programs (Role-based filtering)
 app.get("/api/audit-programs", authenticateToken, async (req, res) => {
   const { tenantId } = req.user;

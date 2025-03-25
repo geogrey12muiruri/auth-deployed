@@ -1,3 +1,4 @@
+require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
@@ -5,6 +6,7 @@ const { PrismaClient } = require('@prisma/client');
 const nodemailer = require('nodemailer');
 const rateLimit = require('express-rate-limit');
 const Redis = require('ioredis');
+const axios = require('axios'); // Add this line
 
 const prisma = new PrismaClient();
 const redis = new Redis(process.env.REDIS_URL);
@@ -18,36 +20,62 @@ const transporter = nodemailer.createTransport({
 // Generate and send OTP
 const sendOTP = async (email) => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
-  await redis.setex(`otp:${email}`, 300, otp); // Expires in 5 minutes
 
-  await transporter.sendMail({
-    to: email,
-    subject: 'Your Verification Code',
-    text: `Your verification code is: ${otp}. It expires in 5 minutes.`,
-  });
+  // Try storing OTP
+  try {
+    await redis.setex(`otp:${email}`, 300, otp); // Expires in 5 minutes
+    console.log(`✅ OTP stored in Redis: ${otp} for ${email}`);
+  } catch (err) {
+    console.error("❌ Failed to store OTP in Redis:", err);
+  }
+
+  // Send email
+  try {
+    await transporter.sendMail({
+      to: email,
+      subject: "Your Verification Code",
+      text: `Your verification code is: ${otp}. It expires in 5 minutes.`,
+    });
+    console.log(`📩 OTP email sent to ${email}`);
+  } catch (err) {
+    console.error("❌ Failed to send OTP email:", err);
+  }
 };
 
-// Register a new user
 exports.register = async (req, res) => {
-  const { email, password, role, tenantId } = req.body;
+  const { email, password, role, tenantId, tenantName } = req.body;
 
   try {
-    const userExists = await prisma.user.findUnique({ where: { email } });
-    if (userExists) return res.status(400).json({ message: 'User already exists' });
+    // Validate required fields
+    if (!tenantId || !tenantName) {
+      return res.status(400).json({ message: 'Tenant ID and Tenant Name are required' });
+    }
 
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-    if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
+    // Check if the user already exists
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User with this email already exists' });
+    }
 
-    const hashedPassword = await bcrypt.hash(password, 12);
+    // Proceed with user registration
+    const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
-      data: { email, password: hashedPassword, verified: false, role, tenantId },
+      data: {
+        email,
+        password: hashedPassword,
+        role,
+        tenantId, // Store tenantId
+        tenantName, // Store tenantName
+      },
     });
 
+    // Send OTP after user creation
     await sendOTP(email);
-    return res.status(201).json({ message: 'User registered. Please verify using the OTP sent to your email.' });
+
+    res.status(201).json({ message: 'User registered successfully. OTP sent to email.', user });
   } catch (error) {
     console.error('Error during registration:', error);
-    return res.status(500).json({ message: 'Server error during registration' });
+    res.status(500).json({ message: 'Server error during registration' });
   }
 };
 
@@ -68,21 +96,37 @@ exports.verifyOTP = async (req, res) => {
     return res.status(500).json({ message: 'Server error during OTP verification' });
   }
 };
-
-// Login
 exports.login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
+    if (!prisma.user) {
+      console.error('Prisma Client is not properly initialized or user model is missing.');
+      return res.status(500).json({ message: 'Server configuration error' });
+    }
+
+    // Find the user by email and explicitly include tenantId and tenantName
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        password: true,
+        role: true,
+        tenantId: true, // Include tenantId in the query
+        tenantName: true, // Include tenantName in the query
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
     if (!user) return res.status(400).json({ message: 'User not found' });
 
+    // Verify the password
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) return res.status(400).json({ message: 'Invalid credentials' });
 
-    const tenant = await prisma.tenant.findUnique({ where: { id: user.tenantId } });
-    if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
-
+    // Generate access and refresh tokens
     const accessToken = jwt.sign(
       { userId: user.id, role: user.role, tenantId: user.tenantId },
       process.env.ACCESS_TOKEN_SECRET,
@@ -97,6 +141,7 @@ exports.login = async (req, res) => {
     // Store refresh token in Redis
     await redis.setex(`refreshToken:${user.id}`, 7 * 24 * 60 * 60, refreshToken); // 7 days
 
+    // Respond with user and tenant details
     return res.json({
       accessToken,
       refreshToken,
@@ -104,8 +149,8 @@ exports.login = async (req, res) => {
         id: user.id,
         email: user.email,
         role: user.role,
-        tenantId: user.tenantId,
-        tenantName: tenant.name,
+        tenantId: user.tenantId, // Include tenantId in the response
+        tenantName: user.tenantName, // Include tenantName in the response
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -115,7 +160,6 @@ exports.login = async (req, res) => {
     return res.status(500).json({ message: 'Server error during login' });
   }
 };
-
 // Get current user
 exports.getCurrentUser = async (req, res) => {
   const authHeader = req.headers.authorization;
@@ -135,6 +179,10 @@ exports.getCurrentUser = async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
     return res.json({ user });
   } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      console.error('Error verifying token:', error);
+      return res.status(401).json({ message: 'Token expired' });
+    }
     console.error('Error verifying token:', error);
     return res.status(401).json({ message: 'Invalid or expired token' });
   }

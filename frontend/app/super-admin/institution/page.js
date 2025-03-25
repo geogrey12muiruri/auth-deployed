@@ -14,13 +14,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -31,50 +24,37 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Define REQUIRED_ROLES before using it
-const REQUIRED_ROLES = [
-  "STUDENT",
-  "LECTURER",
+const ROLES = [
+  "TRAINEE",
+  "TRAINER",
   "HOD",
   "ADMIN",
   "REGISTRAR",
   "STAFF",
   "SUPER_ADMIN",
-  "AUDITOR_GENERAL",
-  "AUDITOR",
+  "MANAGEMENT_REP",
+  "AUDITOR"
 ];
+
+const ALLOWED_TYPES = ["UNIVERSITY", "COLLEGE", "SCHOOL", "INSTITUTE", "OTHER"];
 
 export default function TenantsPage() {
   const router = useRouter();
   const { token, user } = useAuth();
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
+  const [showForm, setShowForm] = useState(false); // State to toggle form visibility
   const [formData, setFormData] = useState({
-    name: "",
-    domain: "",
-    logoUrl: "",
-    address: "",
-    city: "",
-    state: "",
-    country: "",
-    phone: "",
-    email: "",
-    type: "",
-    accreditationNumber: "",
-    establishedYear: "",
-    timezone: "",
-    currency: "",
-    status: "PENDING",
-    users: REQUIRED_ROLES.map((role) => ({
-      email: "",
-      role,
-      firstName: "",
-      lastName: "",
-      password: "",
+    name: "", domain: "", address: "", city: "", state: "",
+    country: "", phone: "", email: "", type: "",
+    accreditationNumber: "", establishedYear: "", timezone: "",
+    currency: "", status: "PENDING",
+    users: ROLES.map(role => ({
+      email: "", role, firstName: "", lastName: "", password: ""
     })),
-    departments: [{ name: "", code: "", hodEmail: "" }],
+    departments: [{ name: "", code: "", hodEmail: "" }]
   });
+  const [roles, setRoles] = useState([]); // State to store roles dynamically
 
   useEffect(() => {
     const fetchTenants = async () => {
@@ -91,23 +71,38 @@ export default function TenantsPage() {
         setLoading(false);
       }
     };
-    if (user?.role?.toUpperCase() === "SUPER_ADMIN") {
-      fetchTenants();
-    } else {
-      setLoading(false);
-    }
+    if (user?.role?.toUpperCase() === "SUPER_ADMIN") fetchTenants();
+    else setLoading(false);
   }, [token, user]);
+
+  // Fetch roles dynamically from the backend
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const response = await fetch("http://localhost:5001/api/roles", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) throw new Error("Failed to fetch roles");
+        const roles = await response.json();
+        setRoles(roles); // Dynamically set roles
+      } catch (error) {
+        console.error("Error fetching roles:", error);
+      }
+    };
+
+    fetchRoles();
+  }, [token]);
 
   const handleInputChange = (e, section, index, field) => {
     const { value } = e.target;
-    setFormData((prev) => {
-      if (section === "tenant") {
-        return { ...prev, [field]: value };
-      } else if (section === "users") {
+    setFormData(prev => {
+      if (section === "tenant") return { ...prev, [field]: value };
+      if (section === "users") {
         const updatedUsers = [...prev.users];
         updatedUsers[index] = { ...updatedUsers[index], [field]: value };
         return { ...prev, users: updatedUsers };
-      } else if (section === "departments") {
+      }
+      if (section === "departments") {
         const updatedDepts = [...prev.departments];
         updatedDepts[index] = { ...updatedDepts[index], [field]: value };
         return { ...prev, departments: updatedDepts };
@@ -117,10 +112,10 @@ export default function TenantsPage() {
   };
 
   const handleSelectChange = (value, section, index, field) => {
-    setFormData((prev) => {
-      if (section === "tenant") {
-        return { ...prev, [field]: value };
-      } else if (section === "departments") {
+    if (!value) return;
+    setFormData(prev => {
+      if (section === "tenant") return { ...prev, [field]: value };
+      if (section === "departments") {
         const updatedDepts = [...prev.departments];
         updatedDepts[index] = { ...updatedDepts[index], [field]: value };
         return { ...prev, departments: updatedDepts };
@@ -130,23 +125,62 @@ export default function TenantsPage() {
   };
 
   const addDepartment = () => {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
-      departments: [...prev.departments, { name: "", code: "", hodEmail: "" }],
+      departments: [...prev.departments, { name: "", code: "", hodEmail: "" }]
     }));
   };
 
   const removeDepartment = (index) => {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
-      departments: prev.departments.filter((_, i) => i !== index),
+      departments: prev.departments.filter((_, i) => i !== index)
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    console.log("Submitting form data:", formData); // Debugging log
+
+    // Validate required fields
+    if (!formData.name || !formData.domain || !formData.email || !formData.type) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+
+    // Validate type
+    if (!ALLOWED_TYPES.includes(formData.type.toUpperCase())) {
+      alert(`Invalid type. Allowed values are: ${ALLOWED_TYPES.join(", ")}`);
+      return;
+    }
+
+    // Validate users
+    const providedRoles = formData.users.map(user => user.role.toUpperCase());
+    const missingRoles = ROLES.filter(role => !providedRoles.includes(role));
+    if (missingRoles.length > 0) {
+      alert(`Missing users for roles: ${missingRoles.join(", ")}`);
+      return;
+    }
+
+    // Validate departments
+    const deptNames = formData.departments.map(dept => dept.name);
+    if (new Set(deptNames).size !== deptNames.length) {
+      alert("Duplicate department names are not allowed.");
+      return;
+    }
+
+    const hodEmails = formData.departments.map(dept => dept.hodEmail);
+    const hodUsers = formData.users.filter(user => user.role.toUpperCase() === "HOD");
+    const invalidHods = hodEmails.filter(email => !hodUsers.some(user => user.email === email));
+    if (invalidHods.length > 0) {
+      alert(`Invalid HOD emails: ${invalidHods.join(", ")}`);
+      return;
+    }
+
+    // Submit the form
     try {
-      const response = await fetch("http://localhost:5001/api/tenants", {
+      const response = await fetch("http://localhost:5001/api/superadmin/tenants", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -154,346 +188,296 @@ export default function TenantsPage() {
         },
         body: JSON.stringify(formData),
       });
+
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create tenant");
+        console.error("Error response from server:", errorData); // Log server error
+        alert(errorData.error || "Failed to create tenant");
+        return;
       }
+
       const newTenant = await response.json();
-      setTenants((prev) => [...prev, newTenant.tenant]);
-      setOpen(false);
+      console.log("Tenant created successfully:", newTenant); // Debugging log
+      setTenants(prev => [...prev, newTenant.tenant]);
+      setShowForm(false);
       setFormData({
-        name: "",
-        domain: "",
-        logoUrl: "",
-        address: "",
-        city: "",
-        state: "",
-        country: "",
-        phone: "",
-        email: "",
-        type: "",
-        accreditationNumber: "",
-        establishedYear: "",
-        timezone: "",
-        currency: "",
-        status: "PENDING",
-        users: REQUIRED_ROLES.map((role) => ({
-          email: "",
-          role,
-          firstName: "",
-          lastName: "",
-          password: "",
+        name: "", domain: "", address: "", city: "", state: "",
+        country: "", phone: "", email: "", type: "",
+        accreditationNumber: "", establishedYear: "", timezone: "",
+        currency: "", status: "PENDING",
+        users: ROLES.map(role => ({
+          email: "", role, firstName: "", lastName: "", password: ""
         })),
-        departments: [{ name: "", code: "", hodEmail: "" }],
+        departments: [{ name: "", code: "", hodEmail: "" }]
       });
     } catch (error) {
-      console.error("Error creating tenant:", error);
+      console.error("Error creating tenant:", error); // Log client-side error
+      alert("An error occurred while creating the institution. Please try again.");
     }
   };
 
-  if (loading) {
-    return (
-      <div className="p-6 max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Institutions</h1>
-        <p>Loading...</p>
-      </div>
-    );
-  }
+  const handleCancel = () => {
+    setShowForm(false);
+    setFormData({
+      name: "", domain: "", address: "", city: "", state: "",
+      country: "", phone: "", email: "", type: "",
+      accreditationNumber: "", establishedYear: "", timezone: "",
+      currency: "", status: "PENDING",
+      users: ROLES.map(role => ({
+        email: "", role, firstName: "", lastName: "", password: ""
+      })),
+      departments: [{ name: "", code: "", hodEmail: "" }]
+    });
+  };
 
-  if (user?.role?.toUpperCase() !== "SUPER_ADMIN") {
-    return (
-      <div className="p-6 max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Institutions</h1>
-        <p className="text-red-500">Access denied. Super Admin privileges required.</p>
+  if (loading) return (
+    <div className="min-h-screen p-8 bg-gray-50">
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">Institutions</h1>
+        <p className="text-gray-600">Loading...</p>
       </div>
-    );
-  }
+    </div>
+  );
+
+  if (user?.role?.toUpperCase() !== "SUPER_ADMIN") return (
+    <div className="min-h-screen p-8 bg-gray-50">
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">Institutions</h1>
+        <p className="text-red-600">Access denied. Super Admin privileges required.</p>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Institutions</h1>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-cyan-600 hover:bg-cyan-700">
-              <Plus className="h-4 w-4 mr-2" />
+    <div className="min-h-screen p-8 bg-gray-50">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Header Section */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900">Institutions</h1>
+          {!showForm && (
+            <Button
+              className="bg-cyan-600 hover:bg-cyan-700 transition-colors"
+              onClick={() => setShowForm(true)}
+            >
+              <Plus className="h-5 w-5 mr-2" />
               New Institution
             </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle>Create New Institution</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Name</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => handleInputChange(e, "tenant", null, "name")}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Domain</Label>
-                  <Input
-                    value={formData.domain}
-                    onChange={(e) => handleInputChange(e, "tenant", null, "domain")}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Email</Label>
-                  <Input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange(e, "tenant", null, "email")}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Type</Label>
-                  <Select
-                    value={formData.type}
-                    onValueChange={(value) => handleSelectChange(value, "tenant", null, "type")}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="SCHOOL">School</SelectItem>
-                      <SelectItem value="UNIVERSITY">University</SelectItem>
-                      <SelectItem value="COLLEGE">College</SelectItem>
-                      <SelectItem value="OTHER">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Address</Label>
-                  <Input
-                    value={formData.address}
-                    onChange={(e) => handleInputChange(e, "tenant", null, "address")}
-                  />
-                </div>
-                <div>
-                  <Label>City</Label>
-                  <Input
-                    value={formData.city}
-                    onChange={(e) => handleInputChange(e, "tenant", null, "city")}
-                  />
-                </div>
-                <div>
-                  <Label>State</Label>
-                  <Input
-                    value={formData.state}
-                    onChange={(e) => handleInputChange(e, "tenant", null, "state")}
-                  />
-                </div>
-                <div>
-                  <Label>Country</Label>
-                  <Input
-                    value={formData.country}
-                    onChange={(e) => handleInputChange(e, "tenant", null, "country")}
-                  />
-                </div>
-                <div>
-                  <Label>Phone</Label>
-                  <Input
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange(e, "tenant", null, "phone")}
-                  />
-                </div>
-                <div>
-                  <Label>Accreditation Number</Label>
-                  <Input
-                    value={formData.accreditationNumber}
-                    onChange={(e) => handleInputChange(e, "tenant", null, "accreditationNumber")}
-                  />
-                </div>
-                <div>
-                  <Label>Established Year</Label>
-                  <Input
-                    type="number"
-                    value={formData.establishedYear}
-                    onChange={(e) => handleInputChange(e, "tenant", null, "establishedYear")}
-                  />
-                </div>
-                <div>
-                  <Label>Timezone</Label>
-                  <Input
-                    value={formData.timezone}
-                    onChange={(e) => handleInputChange(e, "tenant", null, "timezone")}
-                  />
-                </div>
-                <div>
-                  <Label>Currency</Label>
-                  <Input
-                    value={formData.currency}
-                    onChange={(e) => handleInputChange(e, "tenant", null, "currency")}
-                  />
+          )}
+        </div>
+
+        {showForm ? (
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">Create New Institution</h2>
+            <form onSubmit={handleSubmit} className="space-y-8">
+              {/* Institution Details */}
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold text-gray-800">Institution Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {[{ label: "Name", field: "name", required: true },
+                    { label: "Domain", field: "domain", required: true },
+                    { label: "Email", field: "email", type: "email", required: true },
+                    { label: "Type", field: "type", select: true },
+                    { label: "Address", field: "address" },
+                    { label: "City", field: "city" },
+                    { label: "State", field: "state" },
+                    { label: "Country", field: "country" },
+                    { label: "Phone", field: "phone" },
+                    { label: "Accreditation Number", field: "accreditationNumber" },
+                    { label: "Established Year", field: "establishedYear", type: "number" },
+                    { label: "Timezone", field: "timezone" },
+                    { label: "Currency", field: "currency" }].map(({ label, field, type, required, select }) => (
+                      <div key={field} className="space-y-2">
+                        <Label className="text-gray-700">{label}</Label>
+                        {select ? (
+                          <Select
+                            value={formData[field]}
+                            onValueChange={(value) => handleSelectChange(value, "tenant", null, field)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={`Select ${label.toLowerCase()}`} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ALLOWED_TYPES.map(type => (
+                                <SelectItem key={type} value={type}>{type}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            type={type || "text"}
+                            value={formData[field]}
+                            onChange={(e) => handleInputChange(e, "tenant", null, field)}
+                            required={required}
+                            className="w-full"
+                          />
+                        )}
+                      </div>
+                    ))}
                 </div>
               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Users</h3>
-                {formData.users.map((user, index) => (
-                  <div key={index} className="grid grid-cols-5 gap-2 mb-2">
-                    <div>
-                      <Label>Email</Label>
-                      <Input
-                        type="email"
-                        value={user.email}
-                        onChange={(e) => handleInputChange(e, "users", index, "email")}
-                        required
-                      />
+              {/* Users Section */}
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold text-gray-800">Users</h3>
+                <div className="space-y-4">
+                  {formData.users.map((user, index) => (
+                    <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 bg-white rounded-lg shadow-sm">
+                      <div className="space-y-2">
+                        <Label>Email</Label>
+                        <Input
+                          type="email"
+                          value={user.email}
+                          onChange={(e) => handleInputChange(e, "users", index, "email")}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Role</Label>
+                        <Input value={user.role} disabled />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>First Name</Label>
+                        <Input
+                          value={user.firstName}
+                          onChange={(e) => handleInputChange(e, "users", index, "firstName")}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Last Name</Label>
+                        <Input
+                          value={user.lastName}
+                          onChange={(e) => handleInputChange(e, "users", index, "lastName")}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Password</Label>
+                        <Input
+                          type="password"
+                          value={user.password}
+                          onChange={(e) => handleInputChange(e, "users", index, "password")}
+                          required
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <Label>Role</Label>
-                      <Input value={user.role} disabled />
-                    </div>
-                    <div>
-                      <Label>First Name</Label>
-                      <Input
-                        value={user.firstName}
-                        onChange={(e) => handleInputChange(e, "users", index, "firstName")}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label>Last Name</Label>
-                      <Input
-                        value={user.lastName}
-                        onChange={(e) => handleInputChange(e, "users", index, "lastName")}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label>Password</Label>
-                      <Input
-                        type="password"
-                        value={user.password}
-                        onChange={(e) => handleInputChange(e, "users", index, "password")}
-                        required
-                      />
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
 
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-lg font-semibold">Departments</h3>
+              {/* Departments Section */}
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-800">Departments</h3>
                   <Button type="button" variant="outline" onClick={addDepartment}>
                     Add Department
                   </Button>
                 </div>
-                {formData.departments.map((dept, index) => (
-                  <div key={index} className="grid grid-cols-4 gap-2 mb-2">
-                    <div>
-                      <Label>Name</Label>
-                      <Input
-                        value={dept.name}
-                        onChange={(e) => handleInputChange(e, "departments", index, "name")}
-                        required
-                      />
+                <div className="space-y-4">
+                  {formData.departments.map((dept, index) => (
+                    <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-white rounded-lg shadow-sm">
+                      <div className="space-y-2">
+                        <Label>Name</Label>
+                        <Input
+                          value={dept.name}
+                          onChange={(e) => handleInputChange(e, "departments", index, "name")}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Code</Label>
+                        <Input
+                          value={dept.code}
+                          onChange={(e) => handleInputChange(e, "departments", index, "code")}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>HOD Email</Label>
+                        <Select
+                          value={dept.hodEmail}
+                          onValueChange={(value) => handleSelectChange(value, "departments", index, "hodEmail")}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select HOD" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {formData.users
+                              .filter(u => u.role === "HOD" && u.email?.trim())
+                              .map(hod => (
+                                <SelectItem key={hod.email} value={hod.email}>
+                                  {hod.firstName} {hod.lastName} ({hod.email})
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-end">
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          onClick={() => removeDepartment(index)}
+                          disabled={formData.departments.length === 1}
+                        >
+                          Remove
+                        </Button>
+                      </div>
                     </div>
-                    <div>
-                      <Label>Code</Label>
-                      <Input
-                        value={dept.code}
-                        onChange={(e) => handleInputChange(e, "departments", index, "code")}
-                      />
-                    </div>
-                    <div>
-                      <Label>HOD Email</Label>
-                      <Select
-                        value={dept.hodEmail}
-                        onValueChange={(value) =>
-                          handleSelectChange(value, "departments", index, "hodEmail")
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select HOD" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {formData.users
-                            .filter((u) => u.role === "HOD")
-                            .map((hod) => (
-                              <SelectItem key={hod.email} value={hod.email}>
-                                {hod.firstName} {hod.lastName} ({hod.email})
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex items-end">
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        onClick={() => removeDepartment(index)}
-                        disabled={formData.departments.length === 1}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex justify-end space-x-4">
+                <Button type="button" variant="outline" onClick={handleCancel}>
+                  Cancel
+                </Button>
                 <Button type="submit" className="bg-cyan-600 hover:bg-cyan-700">
                   Create Institution
                 </Button>
               </div>
             </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Institutions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Domain</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Users</TableHead>
-                <TableHead>Departments</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tenants.length > 0 ? (
-                tenants.map((tenant) => (
-                  <TableRow key={tenant.id}>
-                    <TableCell>{tenant.name}</TableCell>
-                    <TableCell>{tenant.domain}</TableCell>
-                    <TableCell>{tenant.email}</TableCell>
-                    <TableCell>{tenant.type}</TableCell>
-                    <TableCell>{tenant.status}</TableCell>
-                    <TableCell>{tenant.users?.length || 0}</TableCell>
-                    <TableCell>{tenant.departments?.length || 0}</TableCell>
+          </div>
+        ) : (
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-xl">All Institutions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {["Name", "Domain", "Email", "Type", "Status", "Users", "Departments"].map(head => (
+                      <TableHead key={head} className="text-gray-700">{head}</TableHead>
+                    ))}
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center">
-                    No institutions found. Create a new one to get started!
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {tenants.length > 0 ? (
+                    tenants.map(tenant => (
+                      <TableRow key={tenant.id} className="hover:bg-gray-50">
+                        <TableCell>{tenant.name}</TableCell>
+                        <TableCell>{tenant.domain}</TableCell>
+                        <TableCell>{tenant.email}</TableCell>
+                        <TableCell>{tenant.type}</TableCell>
+                        <TableCell>{tenant.status}</TableCell>
+                        <TableCell>{tenant.users?.length || 0}</TableCell>
+                        <TableCell>{tenant.departments?.length || 0}</TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-gray-500 py-8">
+                        No institutions found. Create a new one to get started!
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
 
-// Opt out of static prerendering since this is a client-side page
 export const dynamic = "force-dynamic";
