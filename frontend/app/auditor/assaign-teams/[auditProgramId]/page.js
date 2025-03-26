@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectItem, SelectContent } from "@/components/ui/select"; // Assuming a Select component exists
+import { Select, SelectItem, SelectContent, SelectTrigger, SelectValue } from "@/components/ui/select"; // Assuming a Select component exists
 
 export default function AssignTeamsPage() {
   const router = useRouter();
@@ -151,13 +151,15 @@ export default function AssignTeamsPage() {
                   <Label>Team Members</Label>
                   <div className="space-y-2">
                     <Select
-                      onChange={(e) => handleAddMember(audit.id, e.target.value)}
-                      placeholder="Select a member to add"
+                      onValueChange={(value) => handleAddMember(audit.id, value)} // Use onValueChange for Select
                     >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a member to add" />
+                      </SelectTrigger>
                       <SelectContent>
                         {auditors.map((auditor) => (
-                          <SelectItem key={auditor.id} value={auditor.name}>
-                            {auditor.name}
+                          <SelectItem key={auditor.id} value={auditor.email}>
+                            {auditor.email}
                           </SelectItem>
                         ))}
                       </SelectContent>

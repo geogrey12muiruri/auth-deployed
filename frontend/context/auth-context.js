@@ -48,6 +48,9 @@ export const AuthProvider = ({ children }) => {
         case 'SUPER_ADMIN':
           router.push('/super-admin/dashboard');
           break;
+          case 'STAFF':
+          router.push('/lecturer/dashboard');
+          break;
         case 'ADMIN':
           router.push('/admin/dashboard');
           break;

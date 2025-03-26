@@ -138,19 +138,19 @@ export default function Sidebar() {
         {
           name: 'Audit Programs',
           href: getAuditProgramsHref(role),
-          access: ['ADMIN', 'MANAGEMENT_REP'],
+          access: ['ADMIN', 'MANAGEMENT_REP', 'STAFF', 'TRAINER', 'HOD', 'REGISTRAR', 'SUPER_ADMIN', 'AUDITOR'], // Updated access
           icon: List,
           submenu: [
             {
               name: 'Active Programs',
               href: '/audit/programs/active',
-              access: ['ADMIN', 'MANAGEMENT_REP'],
+              access: ['ADMIN', 'MANAGEMENT_REP', 'STAFF', 'TRAINER', 'HOD', 'REGISTRAR', 'SUPER_ADMIN', 'AUDITOR'], // Updated access
               icon: FileTextIcon,
             },
             {
               name: 'Completed Programs',
               href: '/audit/programs/completed',
-              access: ['ADMIN', 'MANAGEMENT_REP'],
+              access: ['ADMIN', 'MANAGEMENT_REP', 'STAFF', 'TRAINER', 'HOD', 'REGISTRAR', 'SUPER_ADMIN', 'AUDITOR'], // Updated access
               icon: FileCheck,
             },
             {

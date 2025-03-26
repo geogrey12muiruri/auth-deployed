@@ -10,7 +10,7 @@ const LecturerDashboard = () => {
       <DashboardLayout>
         <div>
           <h1>Lecturer Dashboard</h1>
-          {/* Lecturer dashboard content */}
+          <p>Welcome to the Lecturer dashboard</p>
         </div>
       </DashboardLayout>
     </RoleProtectedRoute>
