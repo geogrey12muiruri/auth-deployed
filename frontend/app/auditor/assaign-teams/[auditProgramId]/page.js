@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectItem } from "@/components/ui/select"; // Assuming a Select component exists
+import { Select, SelectItem, SelectContent } from "@/components/ui/select"; // Assuming a Select component exists
 
 export default function AssignTeamsPage() {
   const router = useRouter();
@@ -42,9 +42,9 @@ export default function AssignTeamsPage() {
       }
     };
 
-    const fetchAuditors = async () => {
+       const fetchAuditors = async () => {
       try {
-        const response = await fetch("http://localhost:5004/api/auditors", {
+        const response = await fetch(`http://localhost:5000/api/users?role=AUDITOR&tenantId=${user.tenantId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!response.ok) throw new Error("Failed to fetch auditors");
@@ -54,7 +54,6 @@ export default function AssignTeamsPage() {
         console.error("Error fetching auditors:", error);
       }
     };
-
     if (user?.role?.toUpperCase() === "MANAGEMENT_REP") {
       fetchAuditProgram();
       fetchAuditors();
@@ -155,11 +154,13 @@ export default function AssignTeamsPage() {
                       onChange={(e) => handleAddMember(audit.id, e.target.value)}
                       placeholder="Select a member to add"
                     >
-                      {auditors.map((auditor) => (
-                        <SelectItem key={auditor.id} value={auditor.name}>
-                          {auditor.name}
-                        </SelectItem>
-                      ))}
+                      <SelectContent>
+                        {auditors.map((auditor) => (
+                          <SelectItem key={auditor.id} value={auditor.name}>
+                            {auditor.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
                     <ul className="mt-2 list-disc pl-5">
                       {teams[audit.id].members.map((member, i) => (

@@ -301,7 +301,36 @@ exports.deleteAccount = async (req, res) => {
     return res.status(500).json({ message: 'Server error during account deletion' });
   }
 };
+exports.getUsersByRoleAndTenant = async (req, res) => {
+  const { role, tenantId } = req.query;
 
+  try {
+    // Validate query parameters
+    if (!role || !tenantId) {
+      return res.status(400).json({ message: "Role and tenantId are required" });
+    }
+
+    // Fetch users with the specified role and tenantId
+    const users = await prisma.user.findMany({
+      where: {
+        role: role.toUpperCase(),
+        tenantId,
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        tenantId: true,
+        tenantName: true,
+      },
+    });
+
+    return res.json(users);
+  } catch (error) {
+    console.error("Error fetching users by role and tenant:", error);
+    return res.status(500).json({ message: "Server error while fetching users" });
+  }
+};
 // Rate limit for login
 exports.loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
