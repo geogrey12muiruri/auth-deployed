@@ -55,7 +55,7 @@ export default function AssignTeamsPage() {
       }
     };
 
-    if (user?.role?.toUpperCase() === "AUDITOR_GENERAL") {
+    if (user?.role?.toUpperCase() === "MANAGEMENT_REP") {
       fetchAuditProgram();
       fetchAuditors();
     } else {
@@ -111,7 +111,7 @@ export default function AssignTeamsPage() {
     );
   }
 
-  if (user?.role?.toUpperCase() !== "AUDITOR_GENERAL") {
+  if (user?.role?.toUpperCase() !== "MANAGEMENT_REP") {
     return (
       <div className="p-6 max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold mb-6">Assign Teams</h1>

@@ -24,27 +24,26 @@ export default function AuditProgramsPage() {
   const [auditPrograms, setAuditPrograms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitStatus, setSubmitStatus] = useState({});
-
-  useEffect(() => {
-    const fetchPrograms = async () => {
-      try {
-        const response = await fetch("http://localhost:5004/api/audit-programs", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) throw new Error("Failed to fetch audit programs");
-        const data = await response.json();
-        console.log("Fetched audit programs:", data);
-        setAuditPrograms(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error("Error fetching audit programs:", error);
-        setAuditPrograms([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (user?.role?.toUpperCase() === "MANAGEMENT_REP") fetchPrograms();
-    else setLoading(false);
-  }, [token, user]);
+useEffect(() => {
+  const fetchPrograms = async () => {
+    try {
+      const response = await fetch("http://localhost:5004/api/audit-programs", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch audit programs");
+      const data = await response.json();
+      console.log("Fetched audit programs:", data); // Debugging
+      setAuditPrograms(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Error fetching audit programs:", error);
+      setAuditPrograms([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  if (user?.role?.toUpperCase() === "MANAGEMENT_REP") fetchPrograms();
+  else setLoading(false);
+}, [token, user]);
 
   const handleCreateProgram = () => router.push("/auditor/new-program");
 
@@ -73,9 +72,15 @@ export default function AuditProgramsPage() {
 
   const handleAssignTeams = (auditProgramId) => router.push(`/auditor/assaign-teams/${auditProgramId}`);
 
-  const filteredPrograms = auditPrograms.filter((program) => {
+   const filteredPrograms = auditPrograms.filter((program) => {
     const status = program.status || "";
-    return tab === "active" ? status === "Active" : tab === "completed" ? status === "Completed" : tab === "scheduled" ? status === "Scheduled" : status === "Draft" || status === "Pending Approval";
+    return tab === "active"
+      ? status === "Active"
+      : tab === "completed"
+      ? status === "Completed"
+      : tab === "scheduled"
+      ? status === "Scheduled"
+      : status === "Draft" || status === "Pending Approval";
   });
 
   if (loading) return <div className="p-6 max-w-7xl mx-auto"><h1 className="text-3xl font-bold mb-6">Audit Programs</h1><p>Loading...</p></div>;
@@ -123,12 +128,14 @@ export default function AuditProgramsPage() {
                       {/* Vertical Audit Table */}
                       <Table className="min-w-full border rounded-md shadow-sm">
                         <TableHeader>
-                          <TableRow className="bg-muted/50">
-                            <TableHead className="font-bold border-r w-48 sticky left-0 bg-gray-200">Audit Component</TableHead>
-                            {program.audits?.map((audit, index) => (
-                              <TableHead key={audit.id} className="font-bold text-center border-r">
-                                Audit {index + 1}
-                              </TableHead>
+                          <TableRow className="hover:bg-gray-50">
+                            <TableCell className="font-medium border-r">Team</TableCell>
+                            {program.audits?.map((audit) => (
+                              <TableCell key={audit.id} className="border-r max-w-xs break-words">
+                                {audit.team
+                                  ? `${audit.team.leader || "TBD"} (${audit.team.members?.join(", ") || "None"})`
+                                  : "Not Assigned"}
+                              </TableCell>
                             ))}
                           </TableRow>
                         </TableHeader>
@@ -146,11 +153,11 @@ export default function AuditProgramsPage() {
                           <TableRow className="hover:bg-gray-50">
                             <TableCell className="font-medium border-r">Scope</TableCell>
                             {program.audits?.map((audit) => (
-                              <TableCell key={audit.id} className="border-r max-w-xs break-words">
+                                                           <TableCell key={audit.id} className="border-r max-w-xs break-words">
                                 <ul className="list-disc list-inside">
-                                  {audit.scope?.split(", ").map((item, idx) => (
-                                    <li key={idx}>{item}</li>
-                                  ))}
+                                  {Array.isArray(audit.scope) && audit.scope.length > 0
+                                    ? audit.scope.map((item, idx) => <li key={idx}>{item}</li>)
+                                    : <li>N/A</li>}
                                 </ul>
                               </TableCell>
                             ))}
@@ -159,11 +166,11 @@ export default function AuditProgramsPage() {
                           <TableRow className="hover:bg-gray-50">
                             <TableCell className="font-medium border-r">Objectives</TableCell>
                             {program.audits?.map((audit) => (
-                              <TableCell key={audit.id} className="border-r max-w-xs break-words">
+                                                          <TableCell key={audit.id} className="border-r max-w-xs break-words">
                                 <ul className="list-disc list-inside">
-                                  {audit.specificAuditObjective?.map((obj, idx) => (
-                                    <li key={idx}>{obj}</li>
-                                  ))}
+                                  {Array.isArray(audit.specificAuditObjective) && audit.specificAuditObjective.length > 0
+                                    ? audit.specificAuditObjective.map((obj, idx) => <li key={idx}>{obj}</li>)
+                                    : <li>N/A</li>}
                                 </ul>
                               </TableCell>
                             ))}
@@ -172,8 +179,10 @@ export default function AuditProgramsPage() {
                           <TableRow className="hover:bg-gray-50">
                             <TableCell className="font-medium border-r">Methods</TableCell>
                             {program.audits?.map((audit) => (
-                              <TableCell key={audit.id} className="border-r max-w-xs break-words">
-                                {audit.methods?.join(", ") || "N/A"}
+                                                            <TableCell key={audit.id} className="border-r max-w-xs break-words">
+                                {Array.isArray(audit.methods) && audit.methods.length > 0
+                                  ? audit.methods.join(", ")
+                                  : "N/A"}
                               </TableCell>
                             ))}
                           </TableRow>
@@ -181,8 +190,10 @@ export default function AuditProgramsPage() {
                           <TableRow className="hover:bg-gray-50">
                             <TableCell className="font-medium border-r">Criteria</TableCell>
                             {program.audits?.map((audit) => (
-                              <TableCell key={audit.id} className="border-r max-w-xs break-words">
-                                {audit.criteria?.join(", ") || "N/A"}
+                                                            <TableCell key={audit.id} className="border-r max-w-xs break-words">
+                                {Array.isArray(audit.criteria) && audit.criteria.length > 0
+                                  ? audit.criteria.join(", ")
+                                  : "N/A"}
                               </TableCell>
                             ))}
                           </TableRow>

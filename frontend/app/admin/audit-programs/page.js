@@ -24,21 +24,15 @@ export default function AdminAuditProgramsPage() {
   const [loading, setLoading] = useState(true);
   const [actionStatus, setActionStatus] = useState({});
 
-  useEffect(() => {
-    console.log("Auth data:", { token, user });
+   useEffect(() => {
     const fetchPrograms = async () => {
       try {
         const response = await fetch("http://localhost:5004/api/audit-programs/admin", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.log("Fetch error response:", errorData);
-          if (response.status === 403) throw new Error("Admin access required");
-          throw new Error("Failed to fetch audit programs");
-        }
+        if (!response.ok) throw new Error("Failed to fetch audit programs");
         const data = await response.json();
-        console.log("Fetched audit programs:", data);
+        console.log("Fetched audit programs:", data); // Debugging
         setAuditPrograms(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Error fetching audit programs:", error.message);
@@ -47,14 +41,8 @@ export default function AdminAuditProgramsPage() {
         setLoading(false);
       }
     };
-    if (user?.role?.toUpperCase() === "ADMIN") {
-      fetchPrograms();
-    } else {
-      console.log("User is not admin, skipping fetch:", user);
-      setLoading(false);
-    }
+    if (user?.role?.toUpperCase() === "ADMIN") fetchPrograms();
   }, [token, user]);
-
   const handleCreateProgram = () => {
     router.push("/admin/new-program");
   };
@@ -135,7 +123,7 @@ export default function AdminAuditProgramsPage() {
     }
   };
 
-  const filteredPrograms = auditPrograms.filter((program) => {
+    const filteredPrograms = auditPrograms.filter((program) => {
     const status = program.status || "";
     return tab === "active"
       ? status === "Active"
@@ -147,7 +135,6 @@ export default function AdminAuditProgramsPage() {
       ? status === "Draft"
       : status === "Pending Approval";
   });
-
   if (loading) {
     return (
       <div className="p-6 max-w-7xl mx-auto">
@@ -244,13 +231,13 @@ export default function AdminAuditProgramsPage() {
                         ))}
                       </TableRow>
                       {/* Scope Row */}
-                      <TableRow className="hover:bg-gray-50">
+                                           <TableRow className="hover:bg-gray-50">
                         <TableCell className="font-medium border-r">Scope</TableCell>
                         {program.audits?.map((audit) => (
                           <TableCell key={audit.id} className="border-r max-w-xs break-words">
-                            {audit.scope ? (
+                            {Array.isArray(audit.scope) && audit.scope.length > 0 ? (
                               <ul className="list-disc list-inside">
-                                {audit.scope.split(", ").map((item, i) => (
+                                {audit.scope.map((item, i) => (
                                   <li key={i} className="text-sm">{item}</li>
                                 ))}
                               </ul>
@@ -261,11 +248,11 @@ export default function AdminAuditProgramsPage() {
                         ))}
                       </TableRow>
                       {/* Objectives Row */}
-                      <TableRow className="hover:bg-gray-50">
-                        <TableCell className="font-medium border-r">Specific Audit Objective(s)</TableCell>
+                                           <TableRow className="hover:bg-gray-50">
+                        <TableCell className="font-medium border-r">Objectives</TableCell>
                         {program.audits?.map((audit) => (
                           <TableCell key={audit.id} className="border-r max-w-xs break-words">
-                            {audit.specificAuditObjective?.length > 0 ? (
+                            {Array.isArray(audit.specificAuditObjective) && audit.specificAuditObjective.length > 0 ? (
                               <ul className="list-disc list-inside">
                                 {audit.specificAuditObjective.map((obj, i) => (
                                   <li key={i} className="text-sm">{obj}</li>
@@ -278,25 +265,29 @@ export default function AdminAuditProgramsPage() {
                         ))}
                       </TableRow>
                       {/* Methods Row */}
-                      <TableRow className="hover:bg-gray-50">
+                                            <TableRow className="hover:bg-gray-50">
                         <TableCell className="font-medium border-r">Methods</TableCell>
                         {program.audits?.map((audit) => (
                           <TableCell key={audit.id} className="border-r max-w-xs break-words">
-                            {audit.methods?.length > 0 ? audit.methods.join(", ") : "Not specified"}
+                            {Array.isArray(audit.methods) && audit.methods.length > 0
+                              ? audit.methods.join(", ")
+                              : "Not specified"}
                           </TableCell>
                         ))}
                       </TableRow>
                       {/* Criteria Row */}
-                      <TableRow className="hover:bg-gray-50">
+                                          <TableRow className="hover:bg-gray-50">
                         <TableCell className="font-medium border-r">Criteria</TableCell>
                         {program.audits?.map((audit) => (
                           <TableCell key={audit.id} className="border-r max-w-xs break-words">
-                            {audit.criteria?.length > 0 ? audit.criteria.join(", ") : "Not specified"}
+                            {Array.isArray(audit.criteria) && audit.criteria.length > 0
+                              ? audit.criteria.join(", ")
+                              : "Not specified"}
                           </TableCell>
                         ))}
                       </TableRow>
                       {/* Teams Row */}
-                      <TableRow className="hover:bg-gray-50">
+                                            <TableRow className="hover:bg-gray-50">
                         <TableCell className="font-medium border-r">Teams</TableCell>
                         {program.audits?.map((audit) => (
                           <TableCell key={audit.id} className="border-r max-w-xs break-words">
