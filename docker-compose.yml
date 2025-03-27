@@ -1,4 +1,4 @@
-
+version: '3.8'
 
 services:
   nginx:
@@ -109,12 +109,13 @@ services:
       - DATABASE_URL=postgresql://postgres:password@postgres-audit:5432/umsdb?schema=audit
       - ACCESS_TOKEN_SECRET=a8f2b91a87c3a6b7e4d8f19ab6c4e5e2f3d6c9b1d2a8e7f6a4b3c9d8e1f2g5h6
       - PORT=5004
+      - AUTH_SERVICE_URL=http://auth-service:5000 # Add this to allow audit-service to call auth-service
     ports:
       - "5004:5004"
     depends_on:
       postgres-audit:
         condition: service_healthy
-      user-service:
+      auth-service:
         condition: service_started
     networks:
       - ums-network

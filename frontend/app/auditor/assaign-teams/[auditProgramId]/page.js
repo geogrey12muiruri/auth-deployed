@@ -132,21 +132,34 @@ export default function AssignTeamsPage() {
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-bold mb-6">Assign Teams - {auditProgram.name}</h1>
       <div className="space-y-6">
-        {auditProgram.audits.map((audit) => (
+               {auditProgram.audits.map((audit) => (
           <Card key={audit.id}>
             <CardHeader>
               <CardTitle>Audit {audit.id.split("A-")[1]}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
+                {/* Team Leader Dropdown */}
                 <div>
                   <Label>Team Leader</Label>
-                  <Input
-                    value={teams[audit.id].leader}
-                    onChange={(e) => handleTeamChange(audit.id, "leader", e.target.value)}
-                    placeholder="Enter team leader name"
-                  />
+                  <Select
+                    onValueChange={(value) => handleTeamChange(audit.id, "leader", value)} // Update the leader field
+                    value={teams[audit.id].leader} // Bind the selected value to the leader field
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a team leader" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {auditors.map((auditor) => (
+                        <SelectItem key={auditor.id} value={auditor.email}>
+                          {auditor.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+        
+                {/* Team Members Dropdown */}
                 <div>
                   <Label>Team Members</Label>
                   <div className="space-y-2">

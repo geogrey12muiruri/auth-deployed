@@ -10,34 +10,45 @@ datasource db {
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
-  role      String   // Role of the user (e.g., AUDITOR)
-  tenantId  String   // Tenant ID for isolation
+  role      String // Role of the user (e.g., AUDITOR)
+  tenantId  String // Tenant ID for isolation
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
+model AcceptedAudit {
+  id         String   @id @default(uuid())
+  auditId    String
+  auditorId  String // Store the user ID directly without a foreign key constraint
+  audit      Audit    @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  acceptedAt DateTime @default(now())
+
+  @@unique([auditId, auditorId]) // Composite unique constraint
+}
+
 model AuditProgram {
-  id                  String   @id
-  name                String
+  id                    String   @id
+  name                  String
   auditProgramObjective String?
-  status              String   @default("Draft")
-  startDate           DateTime
-  endDate             DateTime
-  tenantId            String   // Store tenantId directly
-  tenantName          String   // Store tenantName directly
-  createdBy           String   // User ID of creator
-  audits              Audit[]  // One-to-many relation to audits
-  createdAt           DateTime @default(now())
+  status                String   @default("Draft")
+  startDate             DateTime
+  endDate               DateTime
+  tenantId              String // Store tenantId directly
+  tenantName            String // Store tenantName directly
+  createdBy             String // User ID of creator
+  audits                Audit[] // One-to-many relation to audits
+  createdAt             DateTime @default(now())
 }
 
 model Audit {
-  id                  String       @id
-  auditProgramId      String
-  auditProgram        AuditProgram @relation(fields: [auditProgramId], references: [id], onDelete: Cascade)
-  scope               Json?        // Store array as JSON
-  specificAuditObjective Json?     // Store array as JSON
-  methods             Json?        // Store array as JSON
-  criteria            Json?        // Store array as JSON
-  team                Json?        // JSON object for team
-  createdAt           DateTime     @default(now())
+  id                     String          @id
+  auditProgramId         String
+  auditProgram           AuditProgram    @relation(fields: [auditProgramId], references: [id], onDelete: Cascade)
+  scope                  Json? // Store array as JSON
+  specificAuditObjective Json? // Store array as JSON
+  methods                Json? // Store array as JSON
+  criteria               Json? // Store array as JSON
+  team                   Json? // JSON object for team
+  createdAt              DateTime        @default(now())
+  acceptedAudits         AcceptedAudit[] // Relation to AcceptedAudit
 }

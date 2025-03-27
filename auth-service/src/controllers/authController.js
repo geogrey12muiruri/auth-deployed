@@ -267,6 +267,34 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
+// GET: Fetch User by ID
+exports.getUserById = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        tenantId: true,
+        tenantName: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error("Error fetching user by ID:", error);
+    res.status(500).json({ message: "Server error while fetching user" });
+  }
+};
+
 // Resend OTP
 exports.resendOTP = async (req, res) => {
   const { email } = req.body;
@@ -310,11 +338,14 @@ exports.getUsersByRoleAndTenant = async (req, res) => {
       return res.status(400).json({ message: "Role and tenantId are required" });
     }
 
-    // Fetch users with the specified role and tenantId
+    console.log("Fetching users with role:", role);
+    console.log("Fetching users with tenantId:", tenantId);
+
+    // Query the User table
     const users = await prisma.user.findMany({
       where: {
-        role: role.toUpperCase(),
-        tenantId,
+        role: role.toUpperCase(), // Ensure role is case-insensitive
+        tenantId, // Match tenantId
       },
       select: {
         id: true,
@@ -322,9 +353,12 @@ exports.getUsersByRoleAndTenant = async (req, res) => {
         role: true,
         tenantId: true,
         tenantName: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
+    console.log("Users found:", users); // Log the query result
     return res.json(users);
   } catch (error) {
     console.error("Error fetching users by role and tenant:", error);

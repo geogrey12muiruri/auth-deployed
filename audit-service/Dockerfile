@@ -13,6 +13,9 @@ RUN npm install
 # Ensure Prisma CLI is installed globally (optional, but ensures availability)
 RUN npm install -g prisma
 
+# Copy the Prisma directory (including migrations) into the container
+COPY prisma /app/prisma
+
 # Copy the rest of the application code
 COPY . .
 

@@ -30,6 +30,96 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   refreshTokens RefreshToken[]
+  auditor       Auditor?  @relation
+  managementRep ManagementRep? @relation
+  trainee       Trainee?  @relation
+  trainer       Trainer?  @relation
+  hod           HOD?      @relation
+  admin         Admin?    @relation
+  registrar     Registrar? @relation
+  staff         Staff?    @relation
+  superAdmin    SuperAdmin? @relation
+}
+
+model Auditor {
+  id        String  @id @default(uuid())
+  userId    String  @unique
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId  String  // Tenant ID for isolation
+  tenantName String // Tenant name for isolation
+  createdAt DateTime @default(now())
+}
+
+model ManagementRep {
+  id        String  @id @default(uuid())
+  userId    String  @unique
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId  String  // Tenant ID for isolation
+  tenantName String // Tenant name for isolation
+  createdAt DateTime @default(now())
+}
+
+model Trainee {
+  id        String  @id @default(uuid())
+  userId    String  @unique
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId  String  // Tenant ID for isolation
+  tenantName String // Tenant name for isolation
+  createdAt DateTime @default(now())
+}
+
+model Trainer {
+  id        String  @id @default(uuid())
+  userId    String  @unique
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId  String  // Tenant ID for isolation
+  tenantName String // Tenant name for isolation
+  createdAt DateTime @default(now())
+}
+
+model HOD {
+  id        String  @id @default(uuid())
+  userId    String  @unique
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId  String  // Tenant ID for isolation
+  tenantName String // Tenant name for isolation
+  createdAt DateTime @default(now())
+}
+
+model Admin {
+  id        String  @id @default(uuid())
+  userId    String  @unique
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId  String  // Tenant ID for isolation
+  tenantName String // Tenant name for isolation
+  createdAt DateTime @default(now())
+}
+
+model Registrar {
+  id        String  @id @default(uuid())
+  userId    String  @unique
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId  String  // Tenant ID for isolation
+  tenantName String // Tenant name for isolation
+  createdAt DateTime @default(now())
+}
+
+model Staff {
+  id        String  @id @default(uuid())
+  userId    String  @unique
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId  String  // Tenant ID for isolation
+  tenantName String // Tenant name for isolation
+  createdAt DateTime @default(now())
+}
+
+model SuperAdmin {
+  id        String  @id @default(uuid())
+  userId    String  @unique
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId  String  // Tenant ID for isolation
+  tenantName String // Tenant name for isolation
+  createdAt DateTime @default(now())
 }
 
 model RefreshToken {
@@ -39,20 +129,4 @@ model RefreshToken {
   user      User      @relation(fields: [userId], references: [id])
   expiresAt DateTime
   createdAt DateTime  @default(now())
-}
-
-// Remove the Tenant model
-
-enum InstitutionType {
-  UNIVERSITY
-  COLLEGE
-  SCHOOL
-  INSTITUTE
-  OTHER
-}
-
-enum InstitutionStatus {
-  ACTIVE
-  INACTIVE
-  PENDING
 }

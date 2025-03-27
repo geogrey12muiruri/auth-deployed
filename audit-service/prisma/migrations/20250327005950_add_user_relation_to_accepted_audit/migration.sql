@@ -11,6 +11,16 @@ CREATE TABLE "User" (
 );
 
 -- CreateTable
+CREATE TABLE "AcceptedAudit" (
+    "id" TEXT NOT NULL,
+    "auditId" TEXT NOT NULL,
+    "auditorId" TEXT NOT NULL,
+    "acceptedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AcceptedAudit_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "AuditProgram" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -42,6 +52,15 @@ CREATE TABLE "Audit" (
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "AcceptedAudit_auditId_auditorId_key" ON "AcceptedAudit"("auditId", "auditorId");
+
+-- AddForeignKey
+ALTER TABLE "AcceptedAudit" ADD CONSTRAINT "AcceptedAudit_auditId_fkey" FOREIGN KEY ("auditId") REFERENCES "Audit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AcceptedAudit" ADD CONSTRAINT "AcceptedAudit_auditorId_fkey" FOREIGN KEY ("auditorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Audit" ADD CONSTRAINT "Audit_auditProgramId_fkey" FOREIGN KEY ("auditProgramId") REFERENCES "AuditProgram"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -18,6 +18,8 @@ router.post('/verify-otp', authController.verifyOTP);
 // Route for resending OTP
 router.post('/resend-otp', authController.resendOTP);
 
+router.get('/users/:id', authController.getUserById);
+
 // Route for resetting password
 router.post('/reset-password', authController.resetPassword);
 
@@ -35,6 +37,7 @@ router.post('/forgot-password', authController.forgotPassword);
 
 // Tenant routes
 router.get('/tenants', tenantController.getAllTenants); // Fetch all tenants
+
 router.get('/tenants/:tenantId', tenantController.getTenantById); // Fetch a tenant by ID
 
 

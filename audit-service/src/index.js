@@ -128,6 +128,81 @@ app.get("/api/audit-programs/admin", authenticateToken, restrictToAdmin, async (
   }
 });
 
+// POST: Accept Audit Invitation
+app.post("/api/audits/:id/accept", authenticateToken, async (req, res) => {
+  const { id: auditProgramId } = req.params; // Extract auditProgramId from the request params
+  const { userId, role, tenantId } = req.user; // Extract user details from the JWT
+
+  // Log the incoming request details
+  console.log("Request received at /api/audits/:id/accept");
+  console.log("Audit Program ID:", auditProgramId);
+  console.log("User ID:", userId);
+  console.log("Role:", role);
+  console.log("Tenant ID:", tenantId);
+
+  try {
+    // Ensure only auditors can accept invitations
+    if (role !== "AUDITOR") {
+      return res.status(403).json({ error: "Access restricted to auditors" });
+    }
+
+    // Verify the auditor exists in the auth-service
+    const authServiceUrl = `${process.env.AUTH_SERVICE_URL}/api/users/${userId}`;
+    const { data: user } = await axios.get(authServiceUrl);
+
+    if (!user || user.role !== "AUDITOR" || user.tenantId !== tenantId) {
+      return res.status(400).json({ error: "Invalid auditor or unauthorized" });
+    }
+
+    const auditProgram = await prisma.auditProgram.findFirst({
+      where: {
+        id: auditProgramId, // Match the auditProgramId
+        tenantId, // Ensure the tenant matches
+      },
+      include: {
+        audits: true, // Include associated audits
+      },
+    });
+
+    console.log("Audit Program Found:", auditProgram);
+
+    if (!auditProgram) {
+      return res.status(404).json({ error: "Audit program not found or unauthorized" });
+    }
+
+    // Ensure there is at least one audit under the program
+    const audit = auditProgram.audits[0]; // Fetch the first audit
+    if (!audit) {
+      return res.status(404).json({ error: "No audits found under this program" });
+    }
+
+    // Use the correct auditId
+    const auditId = audit.id;
+
+    // Record the auditor's acceptance
+    const acceptedAudit = await prisma.acceptedAudit.create({
+      data: {
+        auditId, // Use the correct auditId
+        auditorId: userId,
+        acceptedAt: new Date(),
+      },
+    });
+
+    console.log("Accepted Audit Created:", acceptedAudit);
+
+    res.status(201).json({
+      message: "Invitation accepted successfully",
+      acceptedAudit,
+    });
+  } catch (error) {
+    if (error.response && error.response.status === 404) {
+      return res.status(404).json({ error: "Auditor not found in auth-service" });
+    }
+    console.error("Error accepting audit invitation:", error.message);
+    res.status(500).json({ error: "Failed to accept audit invitation" });
+  }
+});
+
 // GET: Fetch Audit Program by ID
 app.get("/api/audit-programs/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
@@ -223,6 +298,39 @@ app.put("/api/audit-programs/:id/approve", authenticateToken, restrictToAdmin, a
   } catch (error) {
     console.error("Error approving audit program:", error);
     res.status(500).json({ error: "Failed to approve audit program" });
+  }
+});
+app.get("/api/audit-programs/auditor", authenticateToken, async (req, res) => {
+  const { email, tenantId, role } = req.user; // Use email instead of userId
+
+  try {
+    // Ensure only auditors can access this endpoint
+    if (role !== "AUDITOR") {
+      return res.status(403).json({ error: "Access restricted to auditors" });
+    }
+
+    // Fetch audit programs where the auditor is part of the team
+    const programs = await prisma.auditProgram.findMany({
+      where: {
+        tenantId,
+        audits: {
+          some: {
+            OR: [
+              { team: { path: ["leader"], equals: email } }, // Check if the auditor is the team leader
+              { team: { path: ["members"], array_contains: email } }, // Check if the auditor is in the team members
+            ],
+          },
+        },
+      },
+      include: {
+        audits: true, // Include associated audits
+      },
+    });
+
+    res.json(programs);
+  } catch (error) {
+    console.error("Error fetching audit programs for auditor:", error);
+    res.status(500).json({ error: "Failed to fetch audit programs for auditor" });
   }
 });
 

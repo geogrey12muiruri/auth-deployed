@@ -192,23 +192,28 @@ export default function NewProgramPage() {
       toast.error("Please add at least one audit.");
       return;
     }
-
+    console.log("Tenant Name:", user.tenantName);
     // Optimized payload: Send arrays directly instead of joining into strings
+
+    console.log("User object:", user);
     const payload = {
       name: newProgram.name,
       auditProgramObjective: newProgram.auditProgramObjective || null,
       startDate: newProgram.startDate,
       endDate: newProgram.endDate,
       tenantId: user.tenantId,
-      tenantName: user.tenantName,
+      tenantName: user.tenantName, // This is where tenantName is added
       audits: newProgram.audits.map((audit) => ({
         id: audit.id,
-        scope: audit.scope, // Array
-        specificAuditObjectives: audit.specificAuditObjectives, // Array
-        methods: audit.methods, // Array
-        criteria: audit.criteria, // Array
+        scope: audit.scope,
+        specificAuditObjectives: audit.specificAuditObjectives,
+        methods: audit.methods,
+        criteria: audit.criteria,
       })),
     };
+
+    
+  console.log("Payload being sent:", payload); // Debug the payload
 
     try {
       const response = await fetch("http://localhost:5004/api/audit-programs", {
