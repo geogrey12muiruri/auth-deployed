@@ -24,17 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const ROLES = [
-  "TRAINEE",
-  "TRAINER",
-  "HOD",
-  "ADMIN",
-  "REGISTRAR",
-  "STAFF",
-  "SUPER_ADMIN",
-  "MANAGEMENT_REP",
-  "AUDITOR"
-];
+const ROLES = ["ADMIN"]; // Only allow creating the ADMIN role during tenant creation
 
 const ALLOWED_TYPES = ["UNIVERSITY", "COLLEGE", "SCHOOL", "INSTITUTE", "OTHER"];
 
@@ -49,12 +39,10 @@ export default function TenantsPage() {
     country: "", phone: "", email: "", type: "",
     accreditationNumber: "", establishedYear: "", timezone: "",
     currency: "", status: "PENDING",
-    users: ROLES.map(role => ({
-      email: "", role, firstName: "", lastName: "", password: ""
-    })),
-    departments: [{ name: "", code: "", hodEmail: "" }]
+    users: [{
+      email: "", role: "ADMIN", firstName: "", lastName: "", password: ""
+    }] // Only one user with the ADMIN role
   });
-  const [roles, setRoles] = useState([]); // State to store roles dynamically
 
   useEffect(() => {
     const fetchTenants = async () => {
@@ -75,24 +63,6 @@ export default function TenantsPage() {
     else setLoading(false);
   }, [token, user]);
 
-  // Fetch roles dynamically from the backend
-  useEffect(() => {
-    const fetchRoles = async () => {
-      try {
-        const response = await fetch("http://localhost:5001/api/roles", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) throw new Error("Failed to fetch roles");
-        const roles = await response.json();
-        setRoles(roles); // Dynamically set roles
-      } catch (error) {
-        console.error("Error fetching roles:", error);
-      }
-    };
-
-    fetchRoles();
-  }, [token]);
-
   const handleInputChange = (e, section, index, field) => {
     const { value } = e.target;
     setFormData(prev => {
@@ -102,11 +72,6 @@ export default function TenantsPage() {
         updatedUsers[index] = { ...updatedUsers[index], [field]: value };
         return { ...prev, users: updatedUsers };
       }
-      if (section === "departments") {
-        const updatedDepts = [...prev.departments];
-        updatedDepts[index] = { ...updatedDepts[index], [field]: value };
-        return { ...prev, departments: updatedDepts };
-      }
       return prev;
     });
   };
@@ -115,27 +80,8 @@ export default function TenantsPage() {
     if (!value) return;
     setFormData(prev => {
       if (section === "tenant") return { ...prev, [field]: value };
-      if (section === "departments") {
-        const updatedDepts = [...prev.departments];
-        updatedDepts[index] = { ...updatedDepts[index], [field]: value };
-        return { ...prev, departments: updatedDepts };
-      }
       return prev;
     });
-  };
-
-  const addDepartment = () => {
-    setFormData(prev => ({
-      ...prev,
-      departments: [...prev.departments, { name: "", code: "", hodEmail: "" }]
-    }));
-  };
-
-  const removeDepartment = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      departments: prev.departments.filter((_, i) => i !== index)
-    }));
   };
 
   const handleSubmit = async (e) => {
@@ -155,26 +101,10 @@ export default function TenantsPage() {
       return;
     }
 
-    // Validate users
-    const providedRoles = formData.users.map(user => user.role.toUpperCase());
-    const missingRoles = ROLES.filter(role => !providedRoles.includes(role));
-    if (missingRoles.length > 0) {
-      alert(`Missing users for roles: ${missingRoles.join(", ")}`);
-      return;
-    }
-
-    // Validate departments
-    const deptNames = formData.departments.map(dept => dept.name);
-    if (new Set(deptNames).size !== deptNames.length) {
-      alert("Duplicate department names are not allowed.");
-      return;
-    }
-
-    const hodEmails = formData.departments.map(dept => dept.hodEmail);
-    const hodUsers = formData.users.filter(user => user.role.toUpperCase() === "HOD");
-    const invalidHods = hodEmails.filter(email => !hodUsers.some(user => user.email === email));
-    if (invalidHods.length > 0) {
-      alert(`Invalid HOD emails: ${invalidHods.join(", ")}`);
+    // Validate ADMIN user
+    const adminUser = formData.users[0];
+    if (!adminUser.email || !adminUser.firstName || !adminUser.lastName || !adminUser.password) {
+      alert("Please provide all required details for the ADMIN user.");
       return;
     }
 
@@ -205,10 +135,9 @@ export default function TenantsPage() {
         country: "", phone: "", email: "", type: "",
         accreditationNumber: "", establishedYear: "", timezone: "",
         currency: "", status: "PENDING",
-        users: ROLES.map(role => ({
-          email: "", role, firstName: "", lastName: "", password: ""
-        })),
-        departments: [{ name: "", code: "", hodEmail: "" }]
+        users: [{
+          email: "", role: "ADMIN", firstName: "", lastName: "", password: ""
+        }]
       });
     } catch (error) {
       console.error("Error creating tenant:", error); // Log client-side error
@@ -223,10 +152,9 @@ export default function TenantsPage() {
       country: "", phone: "", email: "", type: "",
       accreditationNumber: "", establishedYear: "", timezone: "",
       currency: "", status: "PENDING",
-      users: ROLES.map(role => ({
-        email: "", role, firstName: "", lastName: "", password: ""
-      })),
-      departments: [{ name: "", code: "", hodEmail: "" }]
+      users: [{
+        email: "", role: "ADMIN", firstName: "", lastName: "", password: ""
+      }]
     });
   };
 
@@ -316,113 +244,44 @@ export default function TenantsPage() {
                 </div>
               </div>
 
-              {/* Users Section */}
+              {/* ADMIN User Section */}
               <div className="space-y-6">
-                <h3 className="text-lg font-semibold text-gray-800">Users</h3>
-                <div className="space-y-4">
-                  {formData.users.map((user, index) => (
-                    <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 bg-white rounded-lg shadow-sm">
-                      <div className="space-y-2">
-                        <Label>Email</Label>
-                        <Input
-                          type="email"
-                          value={user.email}
-                          onChange={(e) => handleInputChange(e, "users", index, "email")}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Role</Label>
-                        <Input value={user.role} disabled />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>First Name</Label>
-                        <Input
-                          value={user.firstName}
-                          onChange={(e) => handleInputChange(e, "users", index, "firstName")}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Last Name</Label>
-                        <Input
-                          value={user.lastName}
-                          onChange={(e) => handleInputChange(e, "users", index, "lastName")}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Password</Label>
-                        <Input
-                          type="password"
-                          value={user.password}
-                          onChange={(e) => handleInputChange(e, "users", index, "password")}
-                          required
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Departments Section */}
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-800">Departments</h3>
-                  <Button type="button" variant="outline" onClick={addDepartment}>
-                    Add Department
-                  </Button>
-                </div>
-                <div className="space-y-4">
-                  {formData.departments.map((dept, index) => (
-                    <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-white rounded-lg shadow-sm">
-                      <div className="space-y-2">
-                        <Label>Name</Label>
-                        <Input
-                          value={dept.name}
-                          onChange={(e) => handleInputChange(e, "departments", index, "name")}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Code</Label>
-                        <Input
-                          value={dept.code}
-                          onChange={(e) => handleInputChange(e, "departments", index, "code")}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>HOD Email</Label>
-                        <Select
-                          value={dept.hodEmail}
-                          onValueChange={(value) => handleSelectChange(value, "departments", index, "hodEmail")}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select HOD" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {formData.users
-                              .filter(u => u.role === "HOD" && u.email?.trim())
-                              .map(hod => (
-                                <SelectItem key={hod.email} value={hod.email}>
-                                  {hod.firstName} {hod.lastName} ({hod.email})
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex items-end">
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          onClick={() => removeDepartment(index)}
-                          disabled={formData.departments.length === 1}
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                <h3 className="text-lg font-semibold text-gray-800">Admin User</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label>Email</Label>
+                    <Input
+                      type="email"
+                      value={formData.users[0].email}
+                      onChange={(e) => handleInputChange(e, "users", 0, "email")}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>First Name</Label>
+                    <Input
+                      value={formData.users[0].firstName}
+                      onChange={(e) => handleInputChange(e, "users", 0, "firstName")}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Last Name</Label>
+                    <Input
+                      value={formData.users[0].lastName}
+                      onChange={(e) => handleInputChange(e, "users", 0, "lastName")}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Password</Label>
+                    <Input
+                      type="password"
+                      value={formData.users[0].password}
+                      onChange={(e) => handleInputChange(e, "users", 0, "password")}
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 

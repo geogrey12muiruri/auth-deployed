@@ -93,8 +93,8 @@ export default function Sidebar() {
         },
         {
           name: "Institution",
-          href: "/super-admin/institution",
-          access: ["SUPER_ADMIN"],
+          href: "/admin/institution", // Admin's institution page
+          access: ["ADMIN", "SUPER_ADMIN"], // Allow both Admin and Super Admin to access
           icon: Building,
         },
         {

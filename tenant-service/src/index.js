@@ -1,6 +1,5 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
-const { execSync } = require('child_process');
 const routes = require('./routes');
 const cors = require('cors'); // Import the CORS middleware
 require('dotenv').config();
@@ -44,10 +43,6 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5001; // Matches docker-compose.yml
 app.listen(PORT, async () => {
   try {
-    // Run Prisma migrations on startup
-    console.log('Running Prisma migrations...');
-    execSync('npx prisma migrate deploy', { stdio: 'inherit' });
-
     // Connect to the database
     await prisma.$connect();
     console.log('Connected to database');

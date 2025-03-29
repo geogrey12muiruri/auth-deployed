@@ -1,6 +1,11 @@
 const { PrismaClient } = require('@prisma/client');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
+const bcrypt
+  = require('bcrypt');
+const dotenv = require('dotenv');
+dotenv.config();
+const { UserRole } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
@@ -59,40 +64,29 @@ const createTenant = async (req, res) => {
     timezone,
     currency,
     status,
-    users,
-    departments,
+    users, // Admin user details are now inside the users array
   } = req.body;
 
+  // Validate institution type
   const allowedTypes = ['UNIVERSITY', 'COLLEGE', 'SCHOOL', 'INSTITUTE', 'OTHER'];
   if (!allowedTypes.includes(type.toUpperCase())) {
     return res.status(400).json({ error: `Invalid type. Allowed values are: ${allowedTypes.join(', ')}` });
   }
 
-  if (!name || !domain || !email || !type || !users || !departments || departments.length === 0) {
-    return res.status(400).json({ error: 'Name, domain, email, type, users, and at least one department are required' });
+  // Validate required fields
+  if (!name || !domain || !email || !type || !users || users.length === 0) {
+    return res.status(400).json({ error: 'Name, domain, email, type, and adminUser are required' });
   }
 
-  const providedRoles = users.map((u) => u.role.toUpperCase());
-  const missingRoles = REQUIRED_ROLES.filter((role) => !providedRoles.includes(role));
-  if (missingRoles.length > 0) {
-    return res.status(400).json({ error: `Missing users for roles: ${missingRoles.join(', ')}` });
+  // Extract the admin user from the users array
+  const adminUser = users.find((user) => user.role === 'ADMIN');
+  if (!adminUser) {
+    return res.status(400).json({ error: 'Admin user details are required' });
   }
 
-  const userEmails = users.map((u) => u.email);
-  if (new Set(userEmails).size !== userEmails.length) {
-    return res.status(400).json({ error: 'Duplicate emails provided in users' });
-  }
-
-  const hodEmails = departments.map((d) => d.hodEmail);
-  const hodUsers = users.filter((u) => u.role.toUpperCase() === 'HOD');
-  const invalidHods = hodEmails.filter((email) => !hodUsers.some((u) => u.email === email));
-  if (invalidHods.length > 0) {
-    return res.status(400).json({ error: `Invalid HOD emails: ${invalidHods.join(', ')}` });
-  }
-
-  const deptNames = departments.map((d) => d.name);
-  if (new Set(deptNames).size !== deptNames.length) {
-    return res.status(400).json({ error: 'Duplicate department names provided' });
+  const { email: adminEmail, firstName, lastName, password } = adminUser;
+  if (!adminEmail || !firstName || !lastName || !password) {
+    return res.status(400).json({ error: 'Admin user details (email, firstName, lastName, password) are required' });
   }
 
   let tenant;
@@ -115,59 +109,60 @@ const createTenant = async (req, res) => {
         timezone,
         currency,
         status: status || 'PENDING',
-        createdBy: req.user.userId,
+        createdBy: req.user.userId, // Super Admin ID
       },
     });
 
-    // Associate users with the tenant in the tenant-service database
-    const createdUsers = [];
-    for (const userData of users) {
-      const { email, role, firstName, lastName } = userData;
+    // Hash the admin user's password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Create the user in the tenant-service database
-      const user = await prisma.user.create({
-        data: {
-          email,
-          role: role.toUpperCase(),
+    // Create the admin user in the tenant-service database
+    const admin = await prisma.user.create({
+      data: {
+        email: adminEmail,
+        firstName,
+        lastName,
+        password: hashedPassword,
+        role: 'ADMIN', // Admin role
+        tenantId: tenant.id, // Associate with the created tenant
+        verified: true, // Mark as verified since it's created by the Super Admin
+      },
+    });
+
+    // Register the admin user in the auth-service
+    try {
+      const authResponse = await axios.post(
+        `${process.env.AUTH_SERVICE_URL || 'http://auth-service:5000'}/api/register`,
+        {
+          email: adminEmail,
+          password,
+          role: 'ADMIN',
+          tenantId: tenant.id,
+          tenantName: name,
           firstName,
           lastName,
-          tenantId: tenant.id,
         },
-      });
+        { headers: { Authorization: req.headers.authorization } }
+      );
 
-      createdUsers.push(user);
+      console.log('Admin user registered in auth-service:', authResponse.data);
+    } catch (authError) {
+      console.error('Failed to register admin user in auth-service:', authError.response?.data || authError.message);
+      // Rollback: Delete the tenant and admin user if auth-service registration fails
+      await prisma.user.delete({ where: { id: admin.id } }).catch(() => {});
+      await prisma.tenant.delete({ where: { id: tenant.id } }).catch(() => {});
+      return res.status(500).json({ error: 'Failed to register admin user in auth-service' });
     }
 
-    // Create departments and associate them with the tenant
-    const createdDepartments = [];
-    for (const deptData of departments) {
-      const { name, code, hodEmail } = deptData;
-
-      // Find the HOD in the created users
-      const hod = createdUsers.find((u) => u.email === hodEmail && u.role.toUpperCase() === 'HOD');
-      if (!hod) {
-        throw new Error(`HOD ${hodEmail} not found or does not have the HOD role`);
-      }
-
-      // Create the department in the database
-      const department = await prisma.department.create({
-        data: {
-          name,
-          code,
-          tenantId: tenant.id,
-          headId: hod.id, // Associate the HOD with the department
-        },
-      });
-
-      createdDepartments.push(department);
-    }
-
-    res.status(201).json({ tenant, users: createdUsers, departments: createdDepartments });
+    res.status(201).json({ tenant, admin });
   } catch (error) {
     console.error('Error creating tenant:', error);
+
+    // Rollback: Delete the tenant if something goes wrong
     if (tenant) {
       await prisma.tenant.delete({ where: { id: tenant.id } }).catch(() => {});
     }
+
     res.status(500).json({ error: `Server error: ${error.message}` });
   }
 };
@@ -254,6 +249,72 @@ const getRoles = async (req, res) => {
   }
 };
 
+const completeProfile = async (req, res) => {
+  const { tenantId } = req.user;
+  const { departments, roles } = req.body;
+
+  if (!departments || !roles) {
+    return res.status(400).json({ error: "Departments and roles are required" });
+  }
+
+  try {
+    // Validate and create roles
+    const createdRoles = await Promise.all(
+      roles.map(async (role) => {
+        if (!role.name) throw new Error("Role name is required");
+        return prisma.role.create({
+          data: {
+            name: role.name,
+            description: role.description,
+            tenantId,
+          },
+        });
+      })
+    );
+
+    // Validate and create departments
+    const createdDepartments = await Promise.all(
+      departments.map(async (department) => {
+        if (!department.name || !department.code || !department.head) {
+          throw new Error("Department name, code, and head details are required");
+        }
+
+        // Hash the department head's password
+        const hashedPassword = await bcrypt.hash(department.head.password, 10);
+
+        // Create the department head user
+        const headUser = await prisma.user.create({
+          data: {
+            email: department.head.email,
+            firstName: department.head.firstName,
+            lastName: department.head.lastName,
+            password: hashedPassword,
+            roleId: null, // Department heads can have a custom role
+            tenantId,
+            verified: true,
+          },
+        });
+
+        // Create the department
+        return prisma.department.create({
+          data: {
+            name: department.name,
+            code: department.code,
+            tenantId,
+            headId: headUser.id,
+            createdBy: req.user.userId,
+          },
+        });
+      })
+    );
+
+    res.status(201).json({ message: "Profile completed successfully", roles: createdRoles, departments: createdDepartments });
+  } catch (error) {
+    console.error("Error completing profile:", error);
+    res.status(500).json({ error: `Failed to complete profile: ${error.message}` });
+  }
+};
+
 module.exports = {
   createTenant: [authenticateToken, restrictToSuperAdmin, createTenant],
   getAllTenants, 
@@ -261,6 +322,7 @@ module.exports = {
   deleteTenant: [authenticateToken, restrictToSuperAdmin, deleteTenant],
   createUser: [authenticateToken, createUser],
   getRoles,
+  completeProfile: [authenticateToken, completeProfile],
 };
 
 // Cleanup on shutdown

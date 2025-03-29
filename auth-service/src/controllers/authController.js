@@ -100,12 +100,7 @@ exports.login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    if (!prisma.user) {
-      console.error('Prisma Client is not properly initialized or user model is missing.');
-      return res.status(500).json({ message: 'Server configuration error' });
-    }
-
-    // Find the user by email and explicitly include tenantId and tenantName
+    // Find the user by email
     const user = await prisma.user.findUnique({
       where: { email },
       select: {
@@ -113,18 +108,32 @@ exports.login = async (req, res) => {
         email: true,
         password: true,
         role: true,
-        tenantId: true, // Include tenantId in the query
-        tenantName: true, // Include tenantName in the query
+        tenantId: true,
+        tenantName: true,
+        verified: true, // Include the verified field
         createdAt: true,
         updatedAt: true,
       },
     });
 
-    if (!user) return res.status(400).json({ message: 'User not found' });
+    if (!user) {
+      return res.status(400).json({ message: 'User not found' });
+    }
+
+    // Check if the email is verified
+    if (!user.verified) {
+      // Resend OTP
+      await sendOTP(email);
+      return res.status(400).json({
+        message: 'Email not verified. A new OTP has been sent to your email.',
+      });
+    }
 
     // Verify the password
     const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!validPassword) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
 
     // Generate access and refresh tokens
     const accessToken = jwt.sign(
@@ -149,8 +158,8 @@ exports.login = async (req, res) => {
         id: user.id,
         email: user.email,
         role: user.role,
-        tenantId: user.tenantId, // Include tenantId in the response
-        tenantName: user.tenantName, // Include tenantName in the response
+        tenantId: user.tenantId,
+        tenantName: user.tenantName,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },

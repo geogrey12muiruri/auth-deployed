@@ -9,6 +9,9 @@ router.post('/superadmin/tenants/:tenantId/users', authMiddleware, tenantControl
 router.get('/superadmin/tenants', authMiddleware, tenantController.getAllTenants);
 router.delete('/superadmin/tenants/:tenantId', authMiddleware, tenantController.deleteTenant);
 
+// Admin routes
+router.post('/tenants/:tenantId/complete-profile', authMiddleware, tenantController.completeProfile);
+
 // Public routes
 router.get('/tenants', tenantController.getAllTenants);
 router.get('/tenants/:tenantId', tenantController.getTenantById);

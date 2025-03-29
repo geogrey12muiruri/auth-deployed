@@ -11,10 +11,10 @@ enum UserRole {
   TRAINEE
   TRAINER
   HOD
-  ADMIN
+  ADMIN        // System admin for a tenant
   REGISTRAR
   STAFF
-  SUPER_ADMIN
+  SUPER_ADMIN  // Top-level admin
   MANAGEMENT_REP
   AUDITOR
 }
@@ -45,43 +45,63 @@ model Tenant {
   phone               String?
   email               String    @unique
   type                InstitutionType
-  accreditationNumber String?
+  accreditationNumber String?   @unique
   establishedYear     Int?
   timezone            String?
   currency            String?
   status              InstitutionStatus @default(PENDING)
-  createdBy           String
+  createdBy           String    // SUPER_ADMIN ID
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   users               User[]
   departments         Department[]
+  roles               Role[]
 }
 
 model Department {
-  id        String    @id @default(uuid())
-  name      String
-  code      String?   @unique
-  tenantId  String
-  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  headId    String?   @unique
-  head      User?     @relation("DepartmentHead", fields: [headId], references: [id])
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  users     User[]
+  id          String    @id @default(uuid())
+  name        String
+  code        String?   @unique
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  headId      String?   @unique
+  head        User?     @relation("DepartmentHead", fields: [headId], references: [id])
+  createdBy   String    // ADMIN ID who created it
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  users       User[]
+}
+
+model Role {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users       User[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([name, tenantId]) // Ensure role names are unique within a tenant
 }
 
 model User {
-  id           String      @id @default(uuid())
-  email        String      @unique
-  role         UserRole
-  firstName    String?
-  lastName     String?
-  verified     Boolean     @default(false)
-  tenantId     String
-  tenant       Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  departmentId String?
-  department   Department? @relation(fields: [departmentId], references: [id])
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id             String      @id @default(uuid())
+  email          String      @unique
+  password       String      // Hashed password
+  role           UserRole
+  roleId         String?
+  role           Role?       @relation(fields: [roleId], references: [id])
+  firstName      String?
+  lastName       String?
+  verified       Boolean     @default(false)
+  mustChangePassword Boolean  @default(true) // Forces ADMIN to update temp password
+  tenantId       String
+  tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  departmentId   String?
+  department     Department? @relation(fields: [departmentId], references: [id])
+  createdBy      String?     // ID of creator (SUPER_ADMIN or ADMIN)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
   headedDepartment Department? @relation("DepartmentHead")
 }

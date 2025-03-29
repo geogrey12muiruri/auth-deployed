@@ -7,17 +7,24 @@ const LoginForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [info, setInfo] = useState(''); // For informational messages like OTP sent
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
+    setInfo('');
 
     try {
       await login(email, password);
     } catch (err) {
-      setError(err.message);
+      if (err.response?.data?.message === 'Email not verified. A new OTP has been sent to your email.') {
+        setInfo('Email not verified. Please check your email for the OTP.');
+      } else {
+        setError(err.response?.data?.message || 'An error occurred during login.');
+      }
     } finally {
       setLoading(false);
     }
@@ -56,6 +63,7 @@ const LoginForm = () => {
       </div>
 
       {error && <p className="text-red-500 text-sm">{error}</p>}
+      {info && <p className="text-blue-500 text-sm">{info}</p>}
 
       <div>
         <button
