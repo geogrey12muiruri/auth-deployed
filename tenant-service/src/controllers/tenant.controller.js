@@ -343,6 +343,71 @@ const createDepartment = async (req, res) => {
 };
 
 // Get all tenants
+
+const createRole = async (req, res) => {
+  const { tenantId } = req.params;
+  const { name, description } = req.body;
+
+  console.log('Starting role creation process...');
+  console.log('Request body:', req.body);
+
+  // Validate input
+  if (!name) {
+    return res.status(400).json({ error: 'Role name is required.' });
+  }
+
+  try {
+    // Check if the tenant exists
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) {
+      return res.status(404).json({ error: 'Tenant not found.' });
+    }
+    console.log('Tenant found:', tenant);
+
+    // Check if the role already exists for the tenant
+    const existingRole = await prisma.role.findFirst({
+      where: { name, tenantId },
+    });
+    if (existingRole) {
+      return res.status(400).json({ error: 'Role name already exists for this tenant.' });
+    }
+
+    // Create the role in the tenant-service database
+    const role = await prisma.role.create({
+      data: {
+        name,
+        description,
+        tenantId,
+      },
+    });
+    console.log('Role created successfully in tenant-service:', role);
+
+    // Synchronize the role with the auth-service
+    try {
+      const roleSyncResponse = await axios.post(
+        `${process.env.AUTH_SERVICE_URL || 'http://auth-service:5000'}/api/roles`,
+        {
+          id: role.id,
+          name: role.name,
+          description: role.description,
+          tenantId,
+        },
+        { headers: { Authorization: req.headers.authorization } }
+      );
+      console.log('Role synchronized with auth-service:', roleSyncResponse.data);
+    } catch (roleSyncError) {
+      console.error('Failed to synchronize role with auth-service:', roleSyncError.response?.data || roleSyncError.message);
+      // Optionally rollback the role creation in tenant-service
+      await prisma.role.delete({ where: { id: role.id } }).catch(() => {});
+      return res.status(500).json({ error: 'Failed to synchronize role with auth-service.' });
+    }
+
+    res.status(201).json({ message: 'Role created successfully.', role });
+  } catch (error) {
+    console.error('Error during role creation:', error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+};
 const getAllTenants = async (req, res) => {
   try {
     const tenants = await prisma.tenant.findMany({
@@ -354,6 +419,8 @@ const getAllTenants = async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch tenants' });
   }
 };
+
+
 
 // Delete tenant
 const deleteTenant = async (req, res) => {
@@ -424,7 +491,33 @@ const getRoles = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch roles" });
   }
 };
+const getTenantDetails = async (req, res) => {
+  const { tenantId } = req.params;
 
+  try {
+    // Fetch the tenant with related departments and roles
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: {
+        departments: {
+          include: {
+            head: true, // Include the head of each department
+          },
+        },
+        roles: true, // Include all roles for the tenant
+      },
+    });
+
+    if (!tenant) {
+      return res.status(404).json({ error: "Tenant not found." });
+    }
+
+    res.status(200).json(tenant);
+  } catch (error) {
+    console.error("Error fetching tenant details:", error);
+    res.status(500).json({ error: "Failed to fetch tenant details." });
+  }
+};
 const completeProfile = async (req, res) => {
   const { tenantId } = req.user;
   const { departments, roles } = req.body;
@@ -498,6 +591,8 @@ module.exports = {
   deleteTenant: [authenticateToken, restrictToSuperAdmin, deleteTenant],
   createUser: [authenticateToken, createUser],
   getRoles,
+  createRole,
+  getTenantDetails,
   completeProfile: [authenticateToken, completeProfile],
   createDepartment, // Correctly reference the function
 };

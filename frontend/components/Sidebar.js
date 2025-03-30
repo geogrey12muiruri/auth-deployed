@@ -294,17 +294,17 @@ export default function Sidebar() {
       <div className="flex items-center justify-center lg:justify-start gap-3 mb-8">
         <Link href="/" className="flex items-center gap-3">
           <div className="p-1 rounded-lg bg-white shadow-md transition-transform hover:scale-105">
-            <Image
-              src="https://res.cloudinary.com/dws2bgxg4/image/upload/v1739707358/logoooo_vvxiak.jpg"
-              alt="UniERP"
-              width={40}
-              height={40}
-              className="rounded-md"
-            />
+          <img
+    src="/logo.svg" // Path to the SVG in the public folder
+    alt="UniERP"
+    width={40}
+    height={40}
+    className="rounded-md"
+  />
           </div>
           <span className="hidden lg:block text-xl font-semibold text-gray-800 tracking-tight">
-            DimensionPlus
-          </span>
+  {user?.tenantName || "DimensionPlus"}
+</span>
         </Link>
       </div>
 

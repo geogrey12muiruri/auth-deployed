@@ -1,5 +1,5 @@
 "use client";
-
+import { toast } from "react-toastify";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
@@ -99,10 +99,34 @@ export default function InstitutionPage() {
     }
   };
 
-  const addRole = () => {
-    if (!roleInput.name || !roleInput.description) return;
-    setRoles((prev) => [...prev, { ...roleInput }]);
-    setRoleInput({ name: "", description: "" });
+    const addRole = async () => {
+    if (!roleInput.name || !roleInput.description) {
+      alert("Please fill in all required fields for the role.");
+      return;
+    }
+  
+    try {
+      const response = await fetch(`http://localhost:5001/api/tenants/${user?.tenantId}/roles`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: roleInput.name,
+          description: roleInput.description,
+        }),
+      });
+  
+      if (!response.ok) throw new Error("Failed to add role");
+      const data = await response.json();
+      alert("Role added successfully!");
+      setRoles((prev) => [...prev, data.role]); // Add the new role to the list
+      setRoleInput({ name: "", description: "" });
+    } catch (error) {
+      console.error("Error adding role:", error);
+      alert("An error occurred. Please try again.");
+    }
   };
 
   const removeItem = (section, index) => {
@@ -113,31 +137,21 @@ export default function InstitutionPage() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (departments.length === 0 || roles.length === 0) {
-      alert("Please add at least one department and one role.");
-      return;
-    }
+  
+const handleSubmit = (e) => {
+  e.preventDefault();
 
-    try {
-      const response = await fetch(`http://localhost:5001/api/tenants/${user?.tenantId}/complete-profile`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ departments, roles }),
-      });
+  // if (departments.length === 0 || roles.length === 0) {
+  //   alert("Please add at least one department and one role.");
+  //   return;
+  // }
 
-      if (!response.ok) throw new Error("Failed to complete profile");
-      alert("Profile completed successfully!");
-      setShowForm(false);
-    } catch (error) {
-      console.error("Error completing profile:", error);
-      alert("An error occurred. Please try again.");
-    }
-  };
+  // Display a success toast notification
+  toast.success("Profile updated successfully!");
+
+  // Close the form
+  setShowForm(false);
+};
 
   if (loading) return <p>Loading...</p>;
 
@@ -230,7 +244,7 @@ export default function InstitutionPage() {
               </div>
 
               {/* Roles Section */}
-              <div className="space-y-4">
+                            <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-800">Add Role</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -238,7 +252,7 @@ export default function InstitutionPage() {
                     <Input
                       value={roleInput.name}
                       onChange={(e) => handleInputChange(e, "roles", "name")}
-                      placeholder="e.g., Admin"
+                      placeholder="e.g., Staff"
                     />
                   </div>
                   <div className="space-y-2">
@@ -246,14 +260,14 @@ export default function InstitutionPage() {
                     <Input
                       value={roleInput.description}
                       onChange={(e) => handleInputChange(e, "roles", "description")}
-                      placeholder="e.g., Manages system settings"
+                      placeholder="e.g., Staff role for the institution"
                     />
                   </div>
                 </div>
                 <Button type="button" onClick={addRole} className="mt-2">
                   <Plus className="h-4 w-4 mr-2" /> Add Role
                 </Button>
-
+              
                 {roles.length > 0 && (
                   <Table>
                     <TableHeader>
