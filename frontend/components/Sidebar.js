@@ -41,15 +41,24 @@ const SidebarIcon = ({ icon: Icon }) => {
 };
 
 export default function Sidebar() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth(); 
+  
   const [role, setRole] = useState(null);
 
   useEffect(() => {
     if (user) {
-      setRole(user.role); // Keep role as-is (uppercase from auth-service)
+      console.log('User in Sidebar:', user);
+      setRole(user.roleName); // Use roleName instead of role
     }
   }, [user]);
 
+  if (loading) {
+    return <div className="w-16 lg:w-64 h-screen bg-zinc-200 p-4">Loading...</div>;
+  }
+
+  if (!role) {
+    return <div className="w-16 lg:w-64 h-screen bg-zinc-200 p-4">Loading...</div>;
+  }
   // Dynamic routing for Audit Programs based on role
   const getAuditProgramsHref = (role) => {
     if (role === "AUDITOR") return "/auditor-staff/audit-programs";
@@ -91,9 +100,9 @@ export default function Sidebar() {
           access: ["ADMIN", "SUPER_ADMIN"],
           icon: Users,
         },
-        {
+              {
           name: "Institution",
-          href: "/admin/institution", // Admin's institution page
+          href: (role) => (role === "SUPER_ADMIN" ? "/super-admin/institution" : "/admin/institution"),
           access: ["ADMIN", "SUPER_ADMIN"], // Allow both Admin and Super Admin to access
           icon: Building,
         },

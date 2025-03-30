@@ -25,7 +25,6 @@ import {
 } from "@/components/ui/select";
 
 const ROLES = ["ADMIN"]; // Only allow creating the ADMIN role during tenant creation
-
 const ALLOWED_TYPES = ["UNIVERSITY", "COLLEGE", "SCHOOL", "INSTITUTE", "OTHER"];
 
 export default function TenantsPage() {
@@ -35,13 +34,29 @@ export default function TenantsPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false); // State to toggle form visibility
   const [formData, setFormData] = useState({
-    name: "", domain: "", address: "", city: "", state: "",
-    country: "", phone: "", email: "", type: "",
-    accreditationNumber: "", establishedYear: "", timezone: "",
-    currency: "", status: "PENDING",
-    users: [{
-      email: "", role: "ADMIN", firstName: "", lastName: "", password: ""
-    }] // Only one user with the ADMIN role
+    name: "",
+    domain: "",
+    address: "",
+    city: "",
+    state: "",
+    country: "",
+    phone: "",
+    email: "",
+    type: "",
+    accreditationNumber: "",
+    establishedYear: "",
+    timezone: "",
+    currency: "",
+    status: "PENDING",
+    users: [
+      {
+        email: "",
+        role: "ADMIN",
+        firstName: "",
+        lastName: "",
+        password: "",
+      },
+    ], // Only one user with the ADMIN role
   });
 
   useEffect(() => {
@@ -59,13 +74,18 @@ export default function TenantsPage() {
         setLoading(false);
       }
     };
-    if (user?.role?.toUpperCase() === "SUPER_ADMIN") fetchTenants();
-    else setLoading(false);
+
+    // Fetch tenants only if the user is a SUPER_ADMIN
+    if (user?.roleName === "SUPER_ADMIN") {
+      fetchTenants();
+    } else {
+      setLoading(false);
+    }
   }, [token, user]);
 
   const handleInputChange = (e, section, index, field) => {
     const { value } = e.target;
-    setFormData(prev => {
+    setFormData((prev) => {
       if (section === "tenant") return { ...prev, [field]: value };
       if (section === "users") {
         const updatedUsers = [...prev.users];
@@ -78,36 +98,43 @@ export default function TenantsPage() {
 
   const handleSelectChange = (value, section, index, field) => {
     if (!value) return;
-    setFormData(prev => {
+    setFormData((prev) => {
       if (section === "tenant") return { ...prev, [field]: value };
       return prev;
     });
   };
 
-  const handleSubmit = async (e) => {
+   const handleSubmit = async (e) => {
     e.preventDefault();
-
+  
     console.log("Submitting form data:", formData); // Debugging log
-
+  
     // Validate required fields
     if (!formData.name || !formData.domain || !formData.email || !formData.type) {
       alert("Please fill in all required fields.");
       return;
     }
-
+  
     // Validate type
     if (!ALLOWED_TYPES.includes(formData.type.toUpperCase())) {
       alert(`Invalid type. Allowed values are: ${ALLOWED_TYPES.join(", ")}`);
       return;
     }
-
+  
     // Validate ADMIN user
     const adminUser = formData.users[0];
     if (!adminUser.email || !adminUser.firstName || !adminUser.lastName || !adminUser.password) {
       alert("Please provide all required details for the ADMIN user.");
       return;
     }
-
+  
+    // Prepare the payload
+    const payload = {
+      ...formData,
+      adminUser, // Extract adminUser from the users array
+    };
+    delete payload.users; // Remove the users array since adminUser is now directly included
+  
     // Submit the form
     try {
       const response = await fetch("http://localhost:5001/api/superadmin/tenants", {
@@ -116,28 +143,44 @@ export default function TenantsPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         console.error("Error response from server:", errorData); // Log server error
         alert(errorData.error || "Failed to create tenant");
         return;
       }
-
+  
       const newTenant = await response.json();
       console.log("Tenant created successfully:", newTenant); // Debugging log
-      setTenants(prev => [...prev, newTenant.tenant]);
+      setTenants((prev) => [...prev, newTenant.tenant]);
       setShowForm(false);
       setFormData({
-        name: "", domain: "", address: "", city: "", state: "",
-        country: "", phone: "", email: "", type: "",
-        accreditationNumber: "", establishedYear: "", timezone: "",
-        currency: "", status: "PENDING",
-        users: [{
-          email: "", role: "ADMIN", firstName: "", lastName: "", password: ""
-        }]
+        name: "",
+        domain: "",
+        address: "",
+        city: "",
+        state: "",
+        country: "",
+        phone: "",
+        email: "",
+        type: "",
+        accreditationNumber: "",
+        establishedYear: "",
+        timezone: "",
+        currency: "",
+        status: "PENDING",
+        users: [
+          {
+            email: "",
+            role: "ADMIN",
+            firstName: "",
+            lastName: "",
+            password: "",
+          },
+        ],
       });
     } catch (error) {
       console.error("Error creating tenant:", error); // Log client-side error
@@ -148,33 +191,51 @@ export default function TenantsPage() {
   const handleCancel = () => {
     setShowForm(false);
     setFormData({
-      name: "", domain: "", address: "", city: "", state: "",
-      country: "", phone: "", email: "", type: "",
-      accreditationNumber: "", establishedYear: "", timezone: "",
-      currency: "", status: "PENDING",
-      users: [{
-        email: "", role: "ADMIN", firstName: "", lastName: "", password: ""
-      }]
+      name: "",
+      domain: "",
+      address: "",
+      city: "",
+      state: "",
+      country: "",
+      phone: "",
+      email: "",
+      type: "",
+      accreditationNumber: "",
+      establishedYear: "",
+      timezone: "",
+      currency: "",
+      status: "PENDING",
+      users: [
+        {
+          email: "",
+          role: "ADMIN",
+          firstName: "",
+          lastName: "",
+          password: "",
+        },
+      ],
     });
   };
 
-  if (loading) return (
-    <div className="min-h-screen p-8 bg-gray-50">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Institutions</h1>
-        <p className="text-gray-600">Loading...</p>
+  if (loading)
+    return (
+      <div className="min-h-screen p-8 bg-gray-50">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-2xl font-bold text-gray-900 mb-6">Institutions</h1>
+          <p className="text-gray-600">Loading...</p>
+        </div>
       </div>
-    </div>
-  );
+    );
 
-  if (user?.role?.toUpperCase() !== "SUPER_ADMIN") return (
-    <div className="min-h-screen p-8 bg-gray-50">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Institutions</h1>
-        <p className="text-red-600">Access denied. Super Admin privileges required.</p>
+  if (user?.roleName !== "SUPER_ADMIN")
+    return (
+      <div className="min-h-screen p-8 bg-gray-50">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-2xl font-bold text-gray-900 mb-6">Institutions</h1>
+          <p className="text-red-600">Access denied. Super Admin privileges required.</p>
+        </div>
       </div>
-    </div>
-  );
+    );
 
   return (
     <div className="min-h-screen p-8 bg-gray-50">

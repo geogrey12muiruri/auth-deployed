@@ -55,7 +55,7 @@ model Tenant {
   updatedAt           DateTime  @updatedAt
   users               User[]
   departments         Department[]
-  roles               Role[]
+  roles               Role[] // Relation to Role
 }
 
 model Department {
@@ -76,9 +76,9 @@ model Role {
   id          String    @id @default(uuid())
   name        String
   description String?
-  tenantId    String
-  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  users       User[]
+  tenantId    String    // Foreign key for Tenant
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade) // Add relation to Tenant
+  users       User[]    // Users assigned to this role
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -89,7 +89,7 @@ model User {
   id             String      @id @default(uuid())
   email          String      @unique
   password       String      // Hashed password
-  role           UserRole
+  userRole       UserRole    // Renamed from "role" to "userRole"
   roleId         String?
   role           Role?       @relation(fields: [roleId], references: [id])
   firstName      String?

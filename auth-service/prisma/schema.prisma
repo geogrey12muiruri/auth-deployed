@@ -7,38 +7,39 @@ generator client {
   provider = "prisma-client-js"
 }
 
-enum UserRole {
-  TRAINEE
-  TRAINER
-  HOD
-  ADMIN
-  REGISTRAR
-  STAFF
-  SUPER_ADMIN
-  MANAGEMENT_REP
-  AUDITOR
-}
-
 model User {
   id            String    @id @default(uuid())
   email         String    @unique
   password      String
-  role          UserRole
+  roleId        String?   // Foreign key for Role
+  role          Role?     @relation(fields: [roleId], references: [id]) // Relation to Role
   verified      Boolean   @default(false)
   tenantId      String    // Store tenantId as a plain string
   tenantName    String    // Add tenantName to store the tenant's name
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   refreshTokens RefreshToken[]
-  auditor       Auditor?  @relation
-  managementRep ManagementRep? @relation
-  trainee       Trainee?  @relation
-  trainer       Trainer?  @relation
-  hod           HOD?      @relation
-  admin         Admin?    @relation
-  registrar     Registrar? @relation
-  staff         Staff?    @relation
-  superAdmin    SuperAdmin? @relation
+  auditors       Auditor[]
+  managementReps ManagementRep[]
+  trainees       Trainee[]
+  trainers       Trainer[]
+  hods           HOD[]
+  admins         Admin[]
+  registrars     Registrar[]
+  staff          Staff[]
+  superAdmins    SuperAdmin[]
+}
+
+model Role {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  tenantId    String    // Tenant-specific roles
+  users       User[]    // Users assigned to this role
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([name, tenantId]) // Ensure role names are unique within a tenant
 }
 
 model Auditor {

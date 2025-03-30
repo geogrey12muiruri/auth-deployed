@@ -14,6 +14,8 @@ router.post('/tenants/:tenantId/complete-profile', authMiddleware, tenantControl
 
 // Public routes
 router.get('/tenants', tenantController.getAllTenants);
+
+
 router.get('/tenants/:tenantId', tenantController.getTenantById);
 
 module.exports = router;

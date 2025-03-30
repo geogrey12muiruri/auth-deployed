@@ -41,14 +41,13 @@ const sendOTP = async (email) => {
     console.error("❌ Failed to send OTP email:", err);
   }
 };
-
 exports.register = async (req, res) => {
-  const { email, password, role, tenantId, tenantName } = req.body;
+  const { email, password, roleId, tenantId, tenantName } = req.body;
 
   try {
     // Validate required fields
-    if (!tenantId || !tenantName) {
-      return res.status(400).json({ message: 'Tenant ID and Tenant Name are required' });
+    if (!tenantId || !tenantName || !roleId) {
+      return res.status(400).json({ message: 'Tenant ID, Tenant Name, and Role ID are required' });
     }
 
     // Check if the user already exists
@@ -63,9 +62,9 @@ exports.register = async (req, res) => {
       data: {
         email,
         password: hashedPassword,
-        role,
-        tenantId, // Store tenantId
-        tenantName, // Store tenantName
+        roleId, // Assign the role ID as provided
+        tenantId, // Store tenantId as provided
+        tenantName, // Store tenantName as provided
       },
     });
 
@@ -78,6 +77,51 @@ exports.register = async (req, res) => {
     res.status(500).json({ message: 'Server error during registration' });
   }
 };
+
+
+exports.createRole = async (req, res) => {
+  const { id, name, description, tenantId } = req.body;
+
+  try {
+    // Validate required fields
+    if (!id || !name || !tenantId) {
+      return res.status(400).json({ message: 'Role ID, name, and tenant ID are required' });
+    }
+
+    // Create the role in the database
+    const role = await prisma.role.create({
+      data: {
+        id,
+        name,
+        description,
+        tenantId,
+      },
+    });
+
+    res.status(201).json({ message: 'Role created successfully', role });
+  } catch (error) {
+    console.error('Error creating role:', error);
+    res.status(500).json({ message: 'Server error during role creation' });
+  }
+};
+// Get all roles
+exports.getAllRoles = async (req, res) => {
+  try {
+    const roles = await prisma.role.findMany({
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        tenantId: true,
+      },
+    });
+
+    res.json(roles);
+  } catch (error) {
+    console.error('Error fetching roles:', error);
+    res.status(500).json({ message: 'Server error while fetching roles' });
+  }
+}
 
 // Verify OTP
 exports.verifyOTP = async (req, res) => {
@@ -96,6 +140,7 @@ exports.verifyOTP = async (req, res) => {
     return res.status(500).json({ message: 'Server error during OTP verification' });
   }
 };
+
 exports.login = async (req, res) => {
   const { email, password } = req.body;
 
@@ -107,10 +152,11 @@ exports.login = async (req, res) => {
         id: true,
         email: true,
         password: true,
-        role: true,
+        roleId: true, // Include roleId
+        role: { select: { name: true } }, // Include role name
         tenantId: true,
         tenantName: true,
-        verified: true, // Include the verified field
+        verified: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -137,7 +183,7 @@ exports.login = async (req, res) => {
 
     // Generate access and refresh tokens
     const accessToken = jwt.sign(
-      { userId: user.id, role: user.role, tenantId: user.tenantId },
+      { userId: user.id, roleId: user.roleId, roleName: user.role.name, tenantId: user.tenantId },
       process.env.ACCESS_TOKEN_SECRET,
       { expiresIn: '15m' }
     );
@@ -157,7 +203,8 @@ exports.login = async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        role: user.role,
+        roleId: user.roleId,
+        roleName: user.role.name,
         tenantId: user.tenantId,
         tenantName: user.tenantName,
         createdAt: user.createdAt,
@@ -338,28 +385,26 @@ exports.deleteAccount = async (req, res) => {
     return res.status(500).json({ message: 'Server error during account deletion' });
   }
 };
+// Get all users by role and tenant
 exports.getUsersByRoleAndTenant = async (req, res) => {
-  const { role, tenantId } = req.query;
+  const { roleId, tenantId } = req.query;
 
   try {
     // Validate query parameters
-    if (!role || !tenantId) {
-      return res.status(400).json({ message: "Role and tenantId are required" });
+    if (!roleId || !tenantId) {
+      return res.status(400).json({ message: 'Role ID and tenantId are required' });
     }
-
-    console.log("Fetching users with role:", role);
-    console.log("Fetching users with tenantId:", tenantId);
 
     // Query the User table
     const users = await prisma.user.findMany({
       where: {
-        role: role.toUpperCase(), // Ensure role is case-insensitive
+        roleId, // Match roleId
         tenantId, // Match tenantId
       },
       select: {
         id: true,
         email: true,
-        role: true,
+        role: { select: { name: true } }, // Include role name
         tenantId: true,
         tenantName: true,
         createdAt: true,
@@ -367,11 +412,10 @@ exports.getUsersByRoleAndTenant = async (req, res) => {
       },
     });
 
-    console.log("Users found:", users); // Log the query result
     return res.json(users);
   } catch (error) {
-    console.error("Error fetching users by role and tenant:", error);
-    return res.status(500).json({ message: "Server error while fetching users" });
+    console.error('Error fetching users by role and tenant:', error);
+    return res.status(500).json({ message: 'Server error while fetching users' });
   }
 };
 // Rate limit for login

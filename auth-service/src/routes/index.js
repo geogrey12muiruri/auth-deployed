@@ -40,7 +40,9 @@ router.get('/tenants', tenantController.getAllTenants); // Fetch all tenants
 
 router.get('/tenants/:tenantId', tenantController.getTenantById); // Fetch a tenant by ID
 
-
+// Add the route for creating roles
+router.post('/roles', authController.createRole);
+router.get('/roles', authController.getAllRoles);
 // Route for deleting account
 router.post('/delete-account', authController.deleteAccount);
 

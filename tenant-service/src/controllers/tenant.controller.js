@@ -18,7 +18,14 @@ const authenticateToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-    req.user = { userId: decoded.userId, role: decoded.role, tenantId: decoded.tenantId };
+
+    // Update to use roleName instead of role
+    req.user = {
+      userId: decoded.userId,
+      roleName: decoded.roleName, // Use roleName from the JWT payload
+      tenantId: decoded.tenantId,
+    };
+
     next();
   } catch (error) {
     console.error('JWT verification failed:', error.message);
@@ -28,7 +35,7 @@ const authenticateToken = (req, res, next) => {
 
 // Middleware to restrict access to Super Admin
 const restrictToSuperAdmin = (req, res, next) => {
-  if (req.user?.role?.toUpperCase() !== 'SUPER_ADMIN') {
+  if (req.user?.roleName?.toUpperCase() !== 'SUPER_ADMIN') {
     return res.status(403).json({ error: 'Super Admin access required' });
   }
   next();
@@ -45,9 +52,7 @@ const REQUIRED_ROLES = [
   'SUPER_ADMIN',
   'MANAGEMENT_REP',
   'AUDITOR',
-];
-
-const createTenant = async (req, res) => {
+];const createTenant = async (req, res) => {
   const {
     name,
     domain,
@@ -64,7 +69,7 @@ const createTenant = async (req, res) => {
     timezone,
     currency,
     status,
-    users, // Admin user details are now inside the users array
+    adminUser, // Admin user details
   } = req.body;
 
   // Validate institution type
@@ -74,14 +79,8 @@ const createTenant = async (req, res) => {
   }
 
   // Validate required fields
-  if (!name || !domain || !email || !type || !users || users.length === 0) {
+  if (!name || !domain || !email || !type || !adminUser) {
     return res.status(400).json({ error: 'Name, domain, email, type, and adminUser are required' });
-  }
-
-  // Extract the admin user from the users array
-  const adminUser = users.find((user) => user.role === 'ADMIN');
-  if (!adminUser) {
-    return res.status(400).json({ error: 'Admin user details are required' });
   }
 
   const { email: adminEmail, firstName, lastName, password } = adminUser;
@@ -90,6 +89,7 @@ const createTenant = async (req, res) => {
   }
 
   let tenant;
+  let roleId;
   try {
     // Create the tenant in the database
     tenant = await prisma.tenant.create({
@@ -113,6 +113,34 @@ const createTenant = async (req, res) => {
       },
     });
 
+    // Dynamically create the ADMIN role for the tenant
+    const adminRole = await prisma.role.create({
+      data: {
+        name: 'ADMIN',
+        description: 'Administrator role for the tenant',
+        tenantId: tenant.id, // Associate the role with the tenant
+      },
+    });
+    roleId = adminRole.id; // Fetch the roleId
+
+    // Synchronize the role with the auth-service
+    try {
+      await axios.post(
+        `${process.env.AUTH_SERVICE_URL || 'http://auth-service:5000'}/api/roles`,
+        {
+          id: roleId,
+          name: 'ADMIN',
+          description: 'Administrator role for the tenant',
+          tenantId: tenant.id,
+        },
+        { headers: { Authorization: req.headers.authorization } }
+      );
+      console.log('Role synchronized with auth-service');
+    } catch (roleSyncError) {
+      console.error('Failed to synchronize role with auth-service:', roleSyncError.response?.data || roleSyncError.message);
+      throw new Error('Failed to synchronize role with auth-service');
+    }
+
     // Hash the admin user's password
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -123,7 +151,8 @@ const createTenant = async (req, res) => {
         firstName,
         lastName,
         password: hashedPassword,
-        role: 'ADMIN', // Admin role
+        userRole: 'ADMIN', // Use userRole from the adminUser payload
+        roleId, // Assign the ADMIN role ID
         tenantId: tenant.id, // Associate with the created tenant
         verified: true, // Mark as verified since it's created by the Super Admin
       },
@@ -136,9 +165,9 @@ const createTenant = async (req, res) => {
         {
           email: adminEmail,
           password,
-          role: 'ADMIN',
-          tenantId: tenant.id,
-          tenantName: name,
+          roleId, // Include roleId
+          tenantId: tenant.id, // Include tenantId
+          tenantName: name, // Include tenantName
           firstName,
           lastName,
         },

@@ -16,21 +16,29 @@ useEffect(() => {
     try {
       const accessToken = localStorage.getItem('accessToken');
       if (accessToken) {
+        console.log('Access token found:', accessToken);
         const response = await axios.get('http://localhost:5000/api/me', {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
 
-        // Include tenantName in the user object
+        console.log('Response from /me:', response.data);
+
+        // Extract roleName from the role object
+        const roleName = response.data.user.role?.name;
+
+        // Include tenantName and roleName in the user object
         setUser({
           ...response.data.user,
-          tenantName: response.data.user.tenantName, // Add tenantName explicitly
+          roleName, // Add roleName explicitly
         });
 
         setToken(accessToken); // Set token
       } else {
+        console.log('No access token found.');
         setUser(null);
       }
     } catch (error) {
+      console.error('Error fetching user:', error);
       setUser(null);
     } finally {
       setLoading(false);
@@ -39,23 +47,28 @@ useEffect(() => {
 
   checkUserLoggedIn();
 }, []);
-
-    const login = async (email, password) => {
+  const login = async (email, password) => {
     try {
       const response = await axios.post('http://localhost:5000/api/login', { email, password });
-  
-      // Include tenantName in the user object
+
+      // Log the full response for debugging
+      console.log('Login Response:', response.data);
+
+      // Directly use roleName from the response
+      const roleName = response.data.user.roleName;
+
+      // Include tenantName and roleName in the user object
       setUser({
         ...response.data.user,
-        tenantName: response.data.user.tenantName, // Add tenantName explicitly
+        roleName, // Add roleName explicitly
       });
-  
+
       setToken(response.data.accessToken); // Set token
       localStorage.setItem('accessToken', response.data.accessToken);
       localStorage.setItem('refreshToken', response.data.refreshToken);
-  
-      // Redirect based on user role
-      switch (response.data.user.role) {
+
+      // Redirect based on user roleName
+      switch (roleName) { // Use roleName for routing
         case 'SUPER_ADMIN':
           router.push('/super-admin/dashboard');
           break;
@@ -81,6 +94,7 @@ useEffect(() => {
           router.push('/dashboard');
       }
     } catch (error) {
+      console.error('Login Error:', error.response?.data || error.message);
       throw new Error(error.response?.data?.message || 'Login failed');
     }
   };
