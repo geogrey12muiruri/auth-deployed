@@ -95,6 +95,12 @@ useEffect(() => {
       }
     } catch (error) {
       console.error('Login Error:', error.response?.data || error.message);
+
+      // Handle email not verified error
+      if (error.response?.data?.message === 'Email not verified. A new OTP has been sent to your email.') {
+        throw new Error('Email not verified. A new OTP has been sent to your email.');
+      }
+
       throw new Error(error.response?.data?.message || 'Login failed');
     }
   };

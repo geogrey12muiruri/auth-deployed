@@ -52,7 +52,9 @@ const REQUIRED_ROLES = [
   'SUPER_ADMIN',
   'MANAGEMENT_REP',
   'AUDITOR',
-];const createTenant = async (req, res) => {
+];
+
+const createTenant = async (req, res) => {
   const {
     name,
     domain,
@@ -91,6 +93,8 @@ const REQUIRED_ROLES = [
   let tenant;
   let roleId;
   try {
+    console.log('Starting tenant creation process...');
+
     // Create the tenant in the database
     tenant = await prisma.tenant.create({
       data: {
@@ -112,6 +116,7 @@ const REQUIRED_ROLES = [
         createdBy: req.user.userId, // Super Admin ID
       },
     });
+    console.log('Tenant created successfully:', tenant);
 
     // Dynamically create the ADMIN role for the tenant
     const adminRole = await prisma.role.create({
@@ -122,10 +127,11 @@ const REQUIRED_ROLES = [
       },
     });
     roleId = adminRole.id; // Fetch the roleId
+    console.log('Admin role created successfully:', adminRole);
 
     // Synchronize the role with the auth-service
     try {
-      await axios.post(
+      const roleSyncResponse = await axios.post(
         `${process.env.AUTH_SERVICE_URL || 'http://auth-service:5000'}/api/roles`,
         {
           id: roleId,
@@ -135,7 +141,7 @@ const REQUIRED_ROLES = [
         },
         { headers: { Authorization: req.headers.authorization } }
       );
-      console.log('Role synchronized with auth-service');
+      console.log('Role synchronized with auth-service:', roleSyncResponse.data);
     } catch (roleSyncError) {
       console.error('Failed to synchronize role with auth-service:', roleSyncError.response?.data || roleSyncError.message);
       throw new Error('Failed to synchronize role with auth-service');
@@ -157,7 +163,8 @@ const REQUIRED_ROLES = [
         verified: true, // Mark as verified since it's created by the Super Admin
       },
     });
-
+    console.log('Admin user created successfully in tenant-service database:', admin);
+    console.log('Role ID being sent to auth-service during registration:', roleId);
     // Register the admin user in the auth-service
     try {
       const authResponse = await axios.post(
@@ -173,7 +180,6 @@ const REQUIRED_ROLES = [
         },
         { headers: { Authorization: req.headers.authorization } }
       );
-
       console.log('Admin user registered in auth-service:', authResponse.data);
     } catch (authError) {
       console.error('Failed to register admin user in auth-service:', authError.response?.data || authError.message);
@@ -185,7 +191,7 @@ const REQUIRED_ROLES = [
 
     res.status(201).json({ tenant, admin });
   } catch (error) {
-    console.error('Error creating tenant:', error);
+    console.error('Error during tenant creation:', error);
 
     // Rollback: Delete the tenant if something goes wrong
     if (tenant) {
@@ -195,6 +201,93 @@ const REQUIRED_ROLES = [
     res.status(500).json({ error: `Server error: ${error.message}` });
   }
 };
+
+// Create a department and assign an HOD
+exports.createDepartment = async (req, res) => {
+  const { tenantId } = req.params;
+  const { name, code, head } = req.body;
+
+  console.log('Starting department creation process...');
+  console.log('Request body:', req.body);
+
+  // Validate input
+  if (!name || !code || !head || !head.email || !head.firstName || !head.lastName || !head.password) {
+    return res.status(400).json({ error: 'Department name, code, and head details are required.' });
+  }
+
+  try {
+    // Check if the tenant exists
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) {
+      return res.status(404).json({ error: 'Tenant not found.' });
+    }
+
+    console.log('Tenant found:', tenant);
+
+    // Check if the department code or name already exists for the tenant
+    const existingDepartment = await prisma.department.findFirst({
+      where: {
+        tenantId,
+        OR: [{ name }, { code }],
+      },
+    });
+    if (existingDepartment) {
+      return res.status(400).json({ error: 'Department name or code already exists for this tenant.' });
+    }
+
+    // Create the department in the tenant-service database
+    const department = await prisma.department.create({
+      data: {
+        name,
+        code,
+        tenantId,
+        createdBy: req.user.userId, // Admin ID from the request
+      },
+    });
+
+    console.log('Department created successfully:', department);
+
+    // Register the HOD in the auth-service
+    try {
+      const authResponse = await axios.post(
+        `${process.env.AUTH_SERVICE_URL || 'http://auth-service:5000'}/api/register`,
+        {
+          email: head.email,
+          password: head.password,
+          roleId: 'HOD_ROLE_ID', // Replace with the actual HOD role ID
+          tenantId,
+          tenantName: tenant.name,
+          firstName: head.firstName,
+          lastName: head.lastName,
+        },
+        { headers: { Authorization: req.headers.authorization } }
+      );
+
+      console.log('HOD registered in auth-service:', authResponse.data);
+
+      // Link the HOD to the department
+      const updatedDepartment = await prisma.department.update({
+        where: { id: department.id },
+        data: { headId: authResponse.data.user.id },
+      });
+
+      console.log('HOD linked to department:', updatedDepartment);
+
+      res.status(201).json({ message: 'Department created successfully.', department: updatedDepartment });
+    } catch (authError) {
+      console.error('Failed to register HOD in auth-service:', authError.response?.data || authError.message);
+
+      // Rollback: Delete the department if HOD registration fails
+      await prisma.department.delete({ where: { id: department.id } }).catch(() => {});
+      return res.status(500).json({ error: 'Failed to register HOD in auth-service.' });
+    }
+  } catch (error) {
+    console.error('Error during department creation:', error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+};
+
+
 // Get all tenants
 const getAllTenants = async (req, res) => {
   try {
@@ -352,6 +445,7 @@ module.exports = {
   createUser: [authenticateToken, createUser],
   getRoles,
   completeProfile: [authenticateToken, completeProfile],
+  createDepartment: [authenticateToken, exports.createDepartment], // Fix the reference
 };
 
 // Cleanup on shutdown

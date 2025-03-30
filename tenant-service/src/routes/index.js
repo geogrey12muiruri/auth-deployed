@@ -15,6 +15,8 @@ router.post('/tenants/:tenantId/complete-profile', authMiddleware, tenantControl
 // Public routes
 router.get('/tenants', tenantController.getAllTenants);
 
+router.post('/tenants/:tenantId/departments', authMiddleware, tenantController.createDepartment);
+
 
 router.get('/tenants/:tenantId', tenantController.getTenantById);
 
