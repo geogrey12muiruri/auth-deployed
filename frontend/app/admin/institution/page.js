@@ -64,14 +64,39 @@ export default function InstitutionPage() {
     }
   };
 
-  const addDepartment = () => {
-    if (!departmentInput.name || !departmentInput.code || !departmentInput.head.email) return;
-    setDepartments((prev) => [...prev, { ...departmentInput }]);
-    setDepartmentInput({
-      name: "",
-      code: "",
-      head: { email: "", firstName: "", lastName: "", password: "" },
-    });
+    const addDepartment = async () => {
+    if (!departmentInput.name || !departmentInput.code || !departmentInput.head.email) {
+      alert("Please fill in all required fields for the department.");
+      return;
+    }
+  
+    try {
+      const response = await fetch(`http://localhost:5001/api/tenants/${user?.tenantId}/departments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: departmentInput.name,
+          code: departmentInput.code,
+          head: departmentInput.head,
+        }),
+      });
+  
+      if (!response.ok) throw new Error("Failed to add department");
+      const data = await response.json();
+      alert("Department added successfully!");
+      setDepartments((prev) => [...prev, data.department]); // Add the new department to the list
+      setDepartmentInput({
+        name: "",
+        code: "",
+        head: { email: "", firstName: "", lastName: "", password: "" },
+      });
+    } catch (error) {
+      console.error("Error adding department:", error);
+      alert("An error occurred. Please try again.");
+    }
   };
 
   const addRole = () => {
@@ -87,33 +112,31 @@ export default function InstitutionPage() {
       setRoles((prev) => prev.filter((_, i) => i !== index));
     }
   };
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (departments.length === 0 || roles.length === 0) {
+    alert("Please add at least one department and one role.");
+    return;
+  }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (departments.length === 0 || roles.length === 0) {
-      alert("Please add at least one department and one role.");
-      return;
-    }
+  try {
+    const response = await fetch(`http://localhost:5001/api/tenants/${user?.tenantId}/complete-profile`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ departments, roles }),
+    });
 
-    const formData = { departments, roles };
-    try {
-      const response = await fetch(`http://localhost:5001/api/tenants/${user?.tenantId}/complete-profile`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) throw new Error("Failed to complete profile");
-      alert("Profile completed successfully!");
-      setShowForm(false);
-    } catch (error) {
-      console.error("Error completing profile:", error);
-      alert("An error occurred. Please try again.");
-    }
-  };
+    if (!response.ok) throw new Error("Failed to complete profile");
+    alert("Profile completed successfully!");
+    setShowForm(false);
+  } catch (error) {
+    console.error("Error completing profile:", error);
+    alert("An error occurred. Please try again.");
+  }
+};
 
   if (loading) return <p>Loading...</p>;
 
