@@ -201,9 +201,7 @@ const createTenant = async (req, res) => {
     res.status(500).json({ error: `Server error: ${error.message}` });
   }
 };
-
-// Create a department and assign an HOD
-exports.createDepartment = async (req, res) => {
+const createDepartment = async (req, res) => {
   const { tenantId } = req.params;
   const { name, code, head } = req.body;
 
@@ -215,13 +213,13 @@ exports.createDepartment = async (req, res) => {
     return res.status(400).json({ error: 'Department name, code, and head details are required.' });
   }
 
+  let department; // Define the department variable for rollback
   try {
     // Check if the tenant exists
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) {
       return res.status(404).json({ error: 'Tenant not found.' });
     }
-
     console.log('Tenant found:', tenant);
 
     // Check if the department code or name already exists for the tenant
@@ -236,7 +234,7 @@ exports.createDepartment = async (req, res) => {
     }
 
     // Create the department in the tenant-service database
-    const department = await prisma.department.create({
+    department = await prisma.department.create({
       data: {
         name,
         code,
@@ -244,17 +242,47 @@ exports.createDepartment = async (req, res) => {
         createdBy: req.user.userId, // Admin ID from the request
       },
     });
-
     console.log('Department created successfully:', department);
 
+    // Fetch or create the HOD role in tenant-service
+    let hodRole = await prisma.role.findFirst({ where: { name: 'HOD', tenantId } });
+    if (!hodRole) {
+      hodRole = await prisma.role.create({
+        data: {
+          name: 'HOD',
+          description: 'Head of Department',
+          tenantId,
+        },
+      });
+      console.log('HOD role created:', hodRole);
+      // Optionally sync the role with auth-service
+      try {
+        await axios.post(
+          `${process.env.AUTH_SERVICE_URL || 'http://auth-service:5000'}/api/roles`,
+          {
+            id: hodRole.id,
+            name: 'HOD',
+            description: 'Head of Department',
+            tenantId,
+          },
+          { headers: { Authorization: req.headers.authorization } }
+        );
+        console.log('HOD role synced with auth-service');
+      } catch (syncError) {
+        console.error('Failed to sync HOD role with auth-service:', syncError.response?.data || syncError.message);
+        // Optionally handle this failure (e.g., rollback or proceed)
+      }
+    }
+
     // Register the HOD in the auth-service
+    let hodUserId;
     try {
       const authResponse = await axios.post(
         `${process.env.AUTH_SERVICE_URL || 'http://auth-service:5000'}/api/register`,
         {
           email: head.email,
           password: head.password,
-          roleId: 'HOD_ROLE_ID', // Replace with the actual HOD role ID
+          roleId: hodRole.id, // Use the dynamically fetched/created role ID
           tenantId,
           tenantName: tenant.name,
           firstName: head.firstName,
@@ -262,31 +290,57 @@ exports.createDepartment = async (req, res) => {
         },
         { headers: { Authorization: req.headers.authorization } }
       );
-
       console.log('HOD registered in auth-service:', authResponse.data);
 
-      // Link the HOD to the department
-      const updatedDepartment = await prisma.department.update({
-        where: { id: department.id },
-        data: { headId: authResponse.data.user.id },
-      });
-
-      console.log('HOD linked to department:', updatedDepartment);
-
-      res.status(201).json({ message: 'Department created successfully.', department: updatedDepartment });
+      if (!authResponse.data?.user?.id) {
+        throw new Error('Invalid response from auth-service: Missing user ID');
+      }
+      hodUserId = authResponse.data.user.id;
     } catch (authError) {
-      console.error('Failed to register HOD in auth-service:', authError.response?.data || authError.message);
-
+      console.error('Error during HOD registration:', authError.response?.data || authError.message);
       // Rollback: Delete the department if HOD registration fails
-      await prisma.department.delete({ where: { id: department.id } }).catch(() => {});
+      await prisma.department.delete({ where: { id: department.id } }).catch((rollbackError) => {
+        console.error('Rollback failed:', rollbackError);
+      });
       return res.status(500).json({ error: 'Failed to register HOD in auth-service.' });
     }
+
+    // Create the HOD user in the tenant-service database
+    const hodUser = await prisma.user.create({
+      data: {
+        id: hodUserId, // Use the ID from auth-service
+        email: head.email,
+        firstName: head.firstName,
+        lastName: head.lastName,
+        password: await bcrypt.hash(head.password, 10), // Hash locally as a fallback
+        roleId: hodRole.id, // Use the same role ID
+        tenantId,
+        verified: false, // HOD needs to verify their email
+        userRole: 'HOD', // Fix: Add the userRole field
+      },
+    });
+    console.log('HOD user created in tenant-service:', hodUser);
+
+    // Link the HOD to the department
+    const updatedDepartment = await prisma.department.update({
+      where: { id: department.id },
+      data: { headId: hodUserId },
+      include: { head: true }, // Include the head (HOD) details in the response
+    });
+    console.log('HOD linked to department:', updatedDepartment);
+
+    res.status(201).json({ message: 'Department created successfully.', department: updatedDepartment });
   } catch (error) {
     console.error('Error during department creation:', error);
+    // Rollback: Delete the department if it was created
+    if (department) {
+      await prisma.department.delete({ where: { id: department.id } }).catch((rollbackError) => {
+        console.error('Rollback failed:', rollbackError);
+      });
+    }
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
-
 
 // Get all tenants
 const getAllTenants = async (req, res) => {
@@ -445,7 +499,7 @@ module.exports = {
   createUser: [authenticateToken, createUser],
   getRoles,
   completeProfile: [authenticateToken, completeProfile],
-  createDepartment: [authenticateToken, exports.createDepartment], // Fix the reference
+  createDepartment, // Correctly reference the function
 };
 
 // Cleanup on shutdown

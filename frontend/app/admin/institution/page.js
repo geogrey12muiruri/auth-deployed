@@ -64,12 +64,12 @@ export default function InstitutionPage() {
     }
   };
 
-    const addDepartment = async () => {
+  const addDepartment = async () => {
     if (!departmentInput.name || !departmentInput.code || !departmentInput.head.email) {
       alert("Please fill in all required fields for the department.");
       return;
     }
-  
+
     try {
       const response = await fetch(`http://localhost:5001/api/tenants/${user?.tenantId}/departments`, {
         method: "POST",
@@ -83,7 +83,7 @@ export default function InstitutionPage() {
           head: departmentInput.head,
         }),
       });
-  
+
       if (!response.ok) throw new Error("Failed to add department");
       const data = await response.json();
       alert("Department added successfully!");
@@ -112,31 +112,32 @@ export default function InstitutionPage() {
       setRoles((prev) => prev.filter((_, i) => i !== index));
     }
   };
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (departments.length === 0 || roles.length === 0) {
-    alert("Please add at least one department and one role.");
-    return;
-  }
 
-  try {
-    const response = await fetch(`http://localhost:5001/api/tenants/${user?.tenantId}/complete-profile`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ departments, roles }),
-    });
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (departments.length === 0 || roles.length === 0) {
+      alert("Please add at least one department and one role.");
+      return;
+    }
 
-    if (!response.ok) throw new Error("Failed to complete profile");
-    alert("Profile completed successfully!");
-    setShowForm(false);
-  } catch (error) {
-    console.error("Error completing profile:", error);
-    alert("An error occurred. Please try again.");
-  }
-};
+    try {
+      const response = await fetch(`http://localhost:5001/api/tenants/${user?.tenantId}/complete-profile`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ departments, roles }),
+      });
+
+      if (!response.ok) throw new Error("Failed to complete profile");
+      alert("Profile completed successfully!");
+      setShowForm(false);
+    } catch (error) {
+      console.error("Error completing profile:", error);
+      alert("An error occurred. Please try again.");
+    }
+  };
 
   if (loading) return <p>Loading...</p>;
 
@@ -211,7 +212,7 @@ const handleSubmit = async (e) => {
                         <TableRow key={index}>
                           <TableCell>{dept.name}</TableCell>
                           <TableCell>{dept.code}</TableCell>
-                          <TableCell>{dept.head.email}</TableCell>
+                          <TableCell>{dept.head?.email || "N/A"}</TableCell> {/* Add a fallback for missing head */}
                           <TableCell>
                             <Button
                               variant="ghost"

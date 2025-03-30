@@ -41,6 +41,7 @@ const sendOTP = async (email) => {
     console.error("❌ Failed to send OTP email:", err);
   }
 };
+
 exports.register = async (req, res) => {
   const { email, password, roleId, tenantId, tenantName } = req.body;
 
@@ -71,13 +72,16 @@ exports.register = async (req, res) => {
     // Send OTP after user creation
     await sendOTP(email);
 
-    res.status(201).json({ message: 'User registered successfully. OTP sent to email.', user });
+    res.status(201).json({
+      success: true, // Add success field
+      message: 'User registered successfully. OTP sent to email.',
+      user,
+    });
   } catch (error) {
     console.error('Error during registration:', error);
-    res.status(500).json({ message: 'Server error during registration' });
+    res.status(500).json({ success: false, message: 'Server error during registration' });
   }
 };
-
 
 exports.createRole = async (req, res) => {
   const { id, name, description, tenantId } = req.body;
@@ -86,6 +90,12 @@ exports.createRole = async (req, res) => {
     // Validate required fields
     if (!id || !name || !tenantId) {
       return res.status(400).json({ message: 'Role ID, name, and tenant ID are required' });
+    }
+
+    // Check if the role already exists
+    const existingRole = await prisma.role.findUnique({ where: { id } });
+    if (existingRole) {
+      return res.status(400).json({ message: 'Role with this ID already exists' });
     }
 
     // Create the role in the database
@@ -104,6 +114,24 @@ exports.createRole = async (req, res) => {
     res.status(500).json({ message: 'Server error during role creation' });
   }
 };
+
+// Add a new endpoint to fetch a role by ID
+exports.getRoleById = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const role = await prisma.role.findUnique({ where: { id } });
+    if (!role) {
+      return res.status(404).json({ message: 'Role not found' });
+    }
+
+    res.status(200).json(role);
+  } catch (error) {
+    console.error('Error fetching role by ID:', error);
+    res.status(500).json({ message: 'Server error while fetching role' });
+  }
+};
+
 // Get all roles
 exports.getAllRoles = async (req, res) => {
   try {
