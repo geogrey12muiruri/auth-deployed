@@ -20,6 +20,9 @@ router.get('/tenants/:tenantId/details', authMiddleware, tenantController.getTen
 router.post('/tenants/:tenantId/departments', authMiddleware, tenantController.createDepartment);
 router.post('/tenants/:tenantId/roles', authMiddleware, tenantController.createRole);
 
+// Add route for creating users under a tenant
+router.post('/tenants/:tenantId/users', authMiddleware, tenantController.createUser);
+
 router.get('/tenants/:tenantId', tenantController.getTenantById);
 
 module.exports = router;

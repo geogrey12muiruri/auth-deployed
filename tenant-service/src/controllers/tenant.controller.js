@@ -439,31 +439,80 @@ const deleteTenant = async (req, res) => {
 
 // Create user
 const createUser = async (req, res) => {
-  const { tenantId } = req.params;
-  const { email, role, firstName, lastName, password } = req.body;
+  const { tenantId } = req.user; // Tenant ID from the logged-in admin
+  const { email, roleId, firstName, lastName, password, departmentId } = req.body;
 
-  if (!email || !role || !firstName || !lastName || !password) {
-    return res.status(400).json({ error: 'Email, role, firstName, lastName, and password are required' });
+  // Validate input
+  if (!email || !roleId || !firstName || !lastName || !password) {
+    return res.status(400).json({ error: 'Email, roleId, firstName, lastName, and password are required' });
   }
 
   try {
+    // Check if the tenant exists
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
 
-    const authResponse = await axios.post(
-      `${process.env.AUTH_SERVICE_URL || 'http://auth-service:5000'}/api/auth/register`,
-      { email, password, role, tenantId, firstName, lastName },
-      { headers: { Authorization: req.headers.authorization } }
-    );
+    // Check if the role exists and belongs to the tenant
+    const role = await prisma.role.findUnique({ where: { id: roleId } });
+    if (!role || role.tenantId !== tenantId) {
+      return res.status(400).json({ error: 'Invalid role or role does not belong to the tenant' });
+    }
 
-    const user = { email, role, firstName, lastName, tenantId };
-    res.status(201).json({ user });
+    // Check if the department exists and belongs to the tenant (if provided)
+    if (departmentId) {
+      const department = await prisma.department.findUnique({ where: { id: departmentId } });
+      if (!department || department.tenantId !== tenantId) {
+        return res.status(400).json({ error: 'Invalid department or department does not belong to the tenant' });
+      }
+    }
+
+    // Register the user in the auth-service
+    let authUserId;
+    try {
+      const authResponse = await axios.post(
+        `${process.env.AUTH_SERVICE_URL || 'http://auth-service:5000'}/api/register`,
+        {
+          email,
+          password,
+          roleId, // Include roleId
+          tenantId,
+          tenantName: tenant.name,
+          firstName,
+          lastName,
+        },
+        { headers: { Authorization: req.headers.authorization } }
+      );
+      console.log('User registered in auth-service:', authResponse.data);
+
+      if (!authResponse.data?.user?.id) {
+        throw new Error('Invalid response from auth-service: Missing user ID');
+      }
+      authUserId = authResponse.data.user.id;
+    } catch (authError) {
+      console.error('Error during user registration in auth-service:', authError.response?.data || authError.message);
+      return res.status(500).json({ error: 'Failed to register user in auth-service' });
+    }
+
+    // Create the user in the tenant-service database
+    const user = await prisma.user.create({
+      data: {
+        id: authUserId, // Use the ID from auth-service
+        email,
+        firstName,
+        lastName,
+        password: await bcrypt.hash(password, 10), // Hash locally as a fallback
+        roleId, // Assign the selected role
+        tenantId,
+        departmentId, // Link to the department (optional)
+        verified: false, // User needs to verify their email
+      },
+    });
+    console.log('User created in tenant-service:', user);
+
+    res.status(201).json({ message: 'User created successfully', user });
   } catch (error) {
     console.error('Error creating user:', error);
-    if (error.response) {
-      return res.status(error.response.status).json({ error: error.response.data.message || 'Auth service error' });
-    }
-    res.status(500).json({ error: `Server error: ${error.message}` });
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 

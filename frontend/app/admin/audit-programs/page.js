@@ -41,7 +41,7 @@ export default function AdminAuditProgramsPage() {
         setLoading(false);
       }
     };
-    if (user?.role?.toUpperCase() === "ADMIN") fetchPrograms();
+    if (user?.roleName?.toUpperCase() === "ADMIN") fetchPrograms();
   }, [token, user]);
   const handleCreateProgram = () => {
     router.push("/admin/new-program");

@@ -18,36 +18,39 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-// Middleware to authenticate and extract user info from JWT
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
-  if (!token) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) return res.status(401).json({ error: 'Authentication required' });
 
   try {
     const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-    req.user = { userId: decoded.userId, role: decoded.role, tenantId: decoded.tenantId };
+
+    // Update to use roleName instead of role
+    req.user = {
+      userId: decoded.userId,
+      roleName: decoded.roleName, // Use roleName from the JWT payload
+      tenantId: decoded.tenantId,
+    };
+
     next();
   } catch (error) {
-    console.error("JWT verification failed:", error.message);
-    res.status(403).json({ error: "Invalid token" });
+    console.error('JWT verification failed:', error.message);
+    res.status(403).json({ error: 'Invalid token' });
   }
 };
 
-// Middleware to restrict access to admins
 const restrictToAdmin = (req, res, next) => {
-  if (req.user.role !== "ADMIN") {
-    return res.status(403).json({ error: "Admin access required" });
+  if (req.user?.roleName?.toUpperCase() !== 'ADMIN') {
+    return res.status(403).json({ error: 'Admin access required' });
   }
   next();
 };
 
-// Middleware to restrict to Management Representative
 const restrictToManagementRep = (req, res, next) => {
-  if (req.user.role !== "MANAGEMENT_REP") {
-    return res.status(403).json({ error: "Management Representative access required" });
+  if (req.user?.roleName?.toUpperCase() !== 'MANAGEMENT_REP') {
+    return res.status(403).json({ error: 'Management Representative access required' });
   }
   next();
 };
@@ -109,7 +112,6 @@ app.get("/api/audit-programs", authenticateToken, async (req, res) => {
   }
 });
 
-// GET: Fetch Audit Programs for Admin
 app.get("/api/audit-programs/admin", authenticateToken, restrictToAdmin, async (req, res) => {
   const { tenantId } = req.user;
 

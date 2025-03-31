@@ -26,12 +26,21 @@ export default function InstitutionPage() {
 
   const [departments, setDepartments] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [users, setUsers] = useState([]);
   const [departmentInput, setDepartmentInput] = useState({
     name: "",
     code: "",
     head: { email: "", firstName: "", lastName: "", password: "" },
   });
   const [roleInput, setRoleInput] = useState({ name: "", description: "" });
+  const [userInput, setUserInput] = useState({
+    email: "",
+    firstName: "",
+    lastName: "",
+    password: "",
+    roleId: "",
+    departmentId: "",
+  });
 
   useEffect(() => {
     const fetchInstitution = async () => {
@@ -49,7 +58,24 @@ export default function InstitutionPage() {
       }
     };
 
-    if (user?.tenantId) fetchInstitution();
+    const fetchTenantDetails = async () => {
+      try {
+        const response = await fetch(`http://localhost:5001/api/tenants/${user?.tenantId}/details`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) throw new Error("Failed to fetch tenant details");
+        const data = await response.json();
+        setDepartments(data.departments || []);
+        setRoles(data.roles || []);
+      } catch (error) {
+        console.error("Error fetching tenant details:", error);
+      }
+    };
+
+    if (user?.tenantId) {
+      fetchInstitution();
+      fetchTenantDetails();
+    }
   }, [token, user]);
 
   const handleInputChange = (e, section, field, subField) => {
@@ -59,8 +85,10 @@ export default function InstitutionPage() {
         ...prev,
         [field]: subField ? { ...prev[field], [subField]: value } : value,
       }));
-    } else {
+    } else if (section === "roles") {
       setRoleInput((prev) => ({ ...prev, [field]: value }));
+    } else if (section === "users") {
+      setUserInput((prev) => ({ ...prev, [field]: value }));
     }
   };
 
@@ -87,7 +115,7 @@ export default function InstitutionPage() {
       if (!response.ok) throw new Error("Failed to add department");
       const data = await response.json();
       alert("Department added successfully!");
-      setDepartments((prev) => [...prev, data.department]); // Add the new department to the list
+      setDepartments((prev) => [...prev, data.department]);
       setDepartmentInput({
         name: "",
         code: "",
@@ -99,12 +127,12 @@ export default function InstitutionPage() {
     }
   };
 
-    const addRole = async () => {
+  const addRole = async () => {
     if (!roleInput.name || !roleInput.description) {
       alert("Please fill in all required fields for the role.");
       return;
     }
-  
+
     try {
       const response = await fetch(`http://localhost:5001/api/tenants/${user?.tenantId}/roles`, {
         method: "POST",
@@ -117,11 +145,11 @@ export default function InstitutionPage() {
           description: roleInput.description,
         }),
       });
-  
+
       if (!response.ok) throw new Error("Failed to add role");
       const data = await response.json();
       alert("Role added successfully!");
-      setRoles((prev) => [...prev, data.role]); // Add the new role to the list
+      setRoles((prev) => [...prev, data.role]);
       setRoleInput({ name: "", description: "" });
     } catch (error) {
       console.error("Error adding role:", error);
@@ -129,29 +157,62 @@ export default function InstitutionPage() {
     }
   };
 
-  const removeItem = (section, index) => {
-    if (section === "departments") {
-      setDepartments((prev) => prev.filter((_, i) => i !== index));
-    } else {
-      setRoles((prev) => prev.filter((_, i) => i !== index));
+  const addUser = async () => {
+    if (!userInput.email || !userInput.firstName || !userInput.lastName || !userInput.password || !userInput.roleId) {
+      alert("Please fill in all required fields for the user.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5001/api/tenants/${user?.tenantId}/users`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          email: userInput.email,
+          firstName: userInput.firstName,
+          lastName: userInput.lastName,
+          password: userInput.password,
+          roleId: userInput.roleId,
+          departmentId: userInput.departmentId || null,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to add user");
+      const data = await response.json();
+      alert("User added successfully!");
+      setUsers((prev) => [...prev, data.user]);
+      setUserInput({
+        email: "",
+        firstName: "",
+        lastName: "",
+        password: "",
+        roleId: "",
+        departmentId: "",
+      });
+    } catch (error) {
+      console.error("Error adding user:", error);
+      alert("An error occurred. Please try again.");
     }
   };
 
-  
-const handleSubmit = (e) => {
-  e.preventDefault();
+  const removeItem = (section, index) => {
+    if (section === "departments") {
+      setDepartments((prev) => prev.filter((_, i) => i !== index));
+    } else if (section === "roles") {
+      setRoles((prev) => prev.filter((_, i) => i !== index));
+    } else if (section === "users") {
+      setUsers((prev) => prev.filter((_, i) => i !== index));
+    }
+  };
 
-  // if (departments.length === 0 || roles.length === 0) {
-  //   alert("Please add at least one department and one role.");
-  //   return;
-  // }
-
-  // Display a success toast notification
-  toast.success("Profile updated successfully!");
-
-  // Close the form
-  setShowForm(false);
-};
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    toast.success("Profile updated successfully!");
+    setShowForm(false);
+  };
 
   if (loading) return <p>Loading...</p>;
 
@@ -226,7 +287,7 @@ const handleSubmit = (e) => {
                         <TableRow key={index}>
                           <TableCell>{dept.name}</TableCell>
                           <TableCell>{dept.code}</TableCell>
-                          <TableCell>{dept.head?.email || "N/A"}</TableCell> {/* Add a fallback for missing head */}
+                          <TableCell>{dept.head?.email || "N/A"}</TableCell>
                           <TableCell>
                             <Button
                               variant="ghost"
@@ -244,7 +305,7 @@ const handleSubmit = (e) => {
               </div>
 
               {/* Roles Section */}
-                            <div className="space-y-4">
+              <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-800">Add Role</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -267,7 +328,7 @@ const handleSubmit = (e) => {
                 <Button type="button" onClick={addRole} className="mt-2">
                   <Plus className="h-4 w-4 mr-2" /> Add Role
                 </Button>
-              
+
                 {roles.length > 0 && (
                   <Table>
                     <TableHeader>
@@ -287,6 +348,114 @@ const handleSubmit = (e) => {
                               variant="ghost"
                               size="sm"
                               onClick={() => removeItem("roles", index)}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+
+              {/* Users Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-800">Add User</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Email</Label>
+                    <Input
+                      value={userInput.email}
+                      onChange={(e) => handleInputChange(e, "users", "email")}
+                      placeholder="e.g., user@example.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>First Name</Label>
+                    <Input
+                      value={userInput.firstName}
+                      onChange={(e) => handleInputChange(e, "users", "firstName")}
+                      placeholder="e.g., John"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Last Name</Label>
+                    <Input
+                      value={userInput.lastName}
+                      onChange={(e) => handleInputChange(e, "users", "lastName")}
+                      placeholder="e.g., Doe"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Password</Label>
+                    <Input
+                      type="password"
+                      value={userInput.password}
+                      onChange={(e) => handleInputChange(e, "users", "password")}
+                      placeholder="Enter a secure password"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Role</Label>
+                    <select
+                      value={userInput.roleId}
+                      onChange={(e) => handleInputChange(e, "users", "roleId")}
+                      className="w-full border-gray-300 rounded-md"
+                    >
+                      <option value="">Select a role</option>
+                      {roles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Department</Label>
+                    <select
+                      value={userInput.departmentId}
+                      onChange={(e) => handleInputChange(e, "users", "departmentId")}
+                      className="w-full border-gray-300 rounded-md"
+                    >
+                      <option value="">Select a department (optional)</option>
+                      {departments.map((dept) => (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <Button type="button" onClick={addUser} className="mt-2">
+                  <Plus className="h-4 w-4 mr-2" /> Add User
+                </Button>
+
+                {users.length > 0 && (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Email</TableHead>
+                        <TableHead>First Name</TableHead>
+                        <TableHead>Last Name</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Department</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {users.map((user, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>{user.firstName}</TableCell>
+                          <TableCell>{user.lastName}</TableCell>
+                          <TableCell>{roles.find((role) => role.id === user.roleId)?.name || "N/A"}</TableCell>
+                          <TableCell>{departments.find((dept) => dept.id === user.departmentId)?.name || "N/A"}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeItem("users", index)}
                             >
                               <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>

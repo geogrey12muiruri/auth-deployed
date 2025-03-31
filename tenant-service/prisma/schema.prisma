@@ -7,18 +7,6 @@ generator client {
   provider = "prisma-client-js"
 }
 
-enum UserRole {
-  TRAINEE
-  TRAINER
-  HOD
-  ADMIN        // System admin for a tenant
-  REGISTRAR
-  STAFF
-  SUPER_ADMIN  // Top-level admin
-  MANAGEMENT_REP
-  AUDITOR
-}
-
 enum InstitutionType {
   UNIVERSITY
   COLLEGE
@@ -89,9 +77,8 @@ model User {
   id             String      @id @default(uuid())
   email          String      @unique
   password       String      // Hashed password
-  userRole       UserRole    // Renamed from "role" to "userRole"
-  roleId         String?
-  role           Role?       @relation(fields: [roleId], references: [id])
+  roleId         String?     // Foreign key for Role
+  role           Role?       @relation(fields: [roleId], references: [id]) // Relation to Role
   firstName      String?
   lastName       String?
   verified       Boolean     @default(false)
