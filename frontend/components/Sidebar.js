@@ -32,7 +32,7 @@ const ACCESS_LEVELS_ALL = [
   "REGISTRAR",
   "STAFF",
   "SUPER_ADMIN",
-  "MANAGEMENT_REP",
+  "MR", // Updated from MANAGEMENT_REP to MR
   "AUDITOR",
 ];
 
@@ -62,7 +62,7 @@ export default function Sidebar() {
   // Dynamic routing for Audit Programs based on role
   const getAuditProgramsHref = (role) => {
     if (role === "AUDITOR") return "/auditor-staff/audit-programs";
-    if (role === "MANAGEMENT_REP") return "/auditor/audit-programs";
+    if (role === "MR") return "/auditor/audit-programs"; // Updated from MANAGEMENT_REP to MR
     if (role === "ADMIN") return "/admin/audit-programs";
     return "/audit/programs"; // Default route for other roles
   };
@@ -144,7 +144,7 @@ export default function Sidebar() {
         {
           name: "Audit Dashboard",
           href: "/audit/dashboard",
-          access: ["ADMIN", "MANAGEMENT_REP"],
+          access: ["ADMIN", "MR"], // Updated from MANAGEMENT_REP to MR
           icon: LayoutDashboard,
         },
         {
@@ -152,7 +152,7 @@ export default function Sidebar() {
           href: getAuditProgramsHref(role),
           access: [
             "ADMIN",
-            "MANAGEMENT_REP",
+            "MR", // Updated from MANAGEMENT_REP to MR
             "STAFF",
             "TRAINER",
             "HOD",
@@ -167,7 +167,7 @@ export default function Sidebar() {
               href: "/audit/programs/active",
               access: [
                 "ADMIN",
-                "MANAGEMENT_REP",
+                "MR", // Updated from MANAGEMENT_REP to MR
                 "STAFF",
                 "TRAINER",
                 "HOD",
@@ -182,7 +182,7 @@ export default function Sidebar() {
               href: "/audit/programs/completed",
               access: [
                 "ADMIN",
-                "MANAGEMENT_REP",
+                "MR", // Updated from MANAGEMENT_REP to MR
                 "STAFF",
                 "TRAINER",
                 "HOD",
@@ -195,7 +195,7 @@ export default function Sidebar() {
             {
               name: "New Program",
               href: "/audit/programs/new",
-              access: ["MANAGEMENT_REP"], // Only MANAGEMENT_REP can create
+              access: ["MR"], // Updated from MANAGEMENT_REP to MR
               icon: FilePlus,
             },
           ],
@@ -203,25 +203,25 @@ export default function Sidebar() {
         {
           name: "Tasks",
           href: "/audit/tasks",
-          access: ["ADMIN", "MANAGEMENT_REP", "AUDITOR"],
+          access: ["ADMIN", "MR", "AUDITOR"], // Updated from MANAGEMENT_REP to MR
           icon: ClipboardList,
           submenu: [
             {
               name: "All Tasks",
               href: "/audit/tasks/all",
-              access: ["ADMIN", "MANAGEMENT_REP"],
+              access: ["ADMIN", "MR"], // Updated from MANAGEMENT_REP to MR
               icon: List,
             },
             {
               name: "My Tasks",
               href: "/audit/tasks/mine",
-              access: ["ADMIN", "MANAGEMENT_REP", "AUDITOR"],
+              access: ["ADMIN", "MR", "AUDITOR"], // Updated from MANAGEMENT_REP to MR
               icon: User,
             },
             {
               name: "Assign Tasks",
               href: "/audit/tasks/assign",
-              access: ["MANAGEMENT_REP"],
+              access: ["MR"], // Updated from MANAGEMENT_REP to MR
               icon: Users,
             },
           ],
@@ -229,25 +229,25 @@ export default function Sidebar() {
         {
           name: "Reports",
           href: "/audit/reports",
-          access: ["ADMIN", "MANAGEMENT_REP"],
+          access: ["ADMIN", "MR"], // Updated from MANAGEMENT_REP to MR
           icon: FileTextIcon,
           submenu: [
             {
               name: "Draft Reports",
               href: "/audit/reports/drafts",
-              access: ["ADMIN", "MANAGEMENT_REP"],
+              access: ["ADMIN", "MR"], // Updated from MANAGEMENT_REP to MR
               icon: FileTextIcon,
             },
             {
               name: "Submitted Reports",
               href: "/audit/reports/submitted",
-              access: ["ADMIN", "MANAGEMENT_REP"],
+              access: ["ADMIN", "MR"], // Updated from MANAGEMENT_REP to MR
               icon: FileCheck,
             },
             {
               name: "Generate Report",
               href: "/audit/reports/generate",
-              access: ["MANAGEMENT_REP"],
+              access: ["MR"], // Updated from MANAGEMENT_REP to MR
               icon: FilePlus,
             },
           ],
@@ -255,7 +255,7 @@ export default function Sidebar() {
         {
           name: "Audit Trail",
           href: "/audit/trail",
-          access: ["ADMIN", "MANAGEMENT_REP"],
+          access: ["ADMIN", "MR"], // Updated from MANAGEMENT_REP to MR
           icon: FileSearch,
         },
       ],
@@ -272,7 +272,7 @@ export default function Sidebar() {
         {
           name: "Settings",
           href: "/settings",
-          access: ["ADMIN", "SUPER_ADMIN", "MANAGEMENT_REP"],
+          access: ["ADMIN", "SUPER_ADMIN", "MR"], // Updated from MANAGEMENT_REP to MR
           icon: Settings,
         },
         {

@@ -54,13 +54,14 @@ useEffect(() => {
       // Log the full response for debugging
       console.log('Login Response:', response.data);
 
-      // Directly use roleName from the response
-      const roleName = response.data.user.roleName;
+      // Extract roleName and tenantName directly from the user object
+      const { roleName, tenantName } = response.data.user;
 
       // Include tenantName and roleName in the user object
       setUser({
         ...response.data.user,
         roleName, // Add roleName explicitly
+        tenantName, // Add tenantName explicitly
       });
 
       setToken(response.data.accessToken); // Set token
@@ -87,7 +88,7 @@ useEffect(() => {
         case 'AUDITOR':
           router.push('/auditor-staff/dashboard');
           break;
-        case 'MANAGEMENT_REP':
+        case 'MR':
           router.push('/auditor/dashboard');
           break;
         default:

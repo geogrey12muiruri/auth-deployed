@@ -50,7 +50,7 @@ export default function NewProgramPage() {
   // Fallback UI to prevent blank rendering
   if (!isClient) return <div className="p-6">Loading client...</div>;
   if (!user) return <div className="p-6">Loading user data...</div>;
-  if (user.role !== "MANAGEMENT_REP") return <div className="p-6">Unauthorized: Auditor General access only</div>;
+  if (user.roleName !== "MR") return <div className="p-6">Unauthorized: Auditor General access only</div>;
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

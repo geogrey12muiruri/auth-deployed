@@ -63,7 +63,7 @@ const LoginForm = () => {
     setInfo('');
 
     try {
-      await axios.post('/api/auth/resend-otp', { email });
+      await axios.post('http://localhost:5000/api/resend-otp', { email });
       setInfo('A new OTP has been sent to your email.');
       setOtpTimer(300); // Reset the timer
     } catch (err) {
@@ -155,7 +155,7 @@ const LoginForm = () => {
             <span className="flex justify-center items-center">
               <svg className="animate-spin w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <circle cx="12" cy="12" r="10" strokeWidth="4" className="opacity-25" />
-                <path d="M4 12a8 8 0 1116 0A8 8 0 014 12z" strokeLinecap="round" strokeLinejoin="round" className="opacity-75" />
+                <path d="M4 12a8 8 0 1116 0A8 8 8 0 014 12z" strokeLinecap="round" strokeLinejoin="round" className="opacity-75" />
               </svg>
               Processing...
             </span>
@@ -186,7 +186,10 @@ const LoginForm = () => {
         <div className="text-center mt-4">
           <button
             type="button"
-            onClick={() => setShowOtpStep(true)}
+            onClick={() => {
+              setShowOtpStep(true);
+              handleResendOTP(); // Trigger OTP resend when clicking "Verify Email"
+            }}
             className="text-blue-600 hover:underline text-sm"
           >
             Verify Email

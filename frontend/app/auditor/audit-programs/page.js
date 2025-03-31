@@ -41,7 +41,7 @@ useEffect(() => {
       setLoading(false);
     }
   };
-  if (user?.role?.toUpperCase() === "MANAGEMENT_REP") fetchPrograms();
+  if (user?.roleName?.toUpperCase() === "MR") fetchPrograms();
   else setLoading(false);
 }, [token, user]);
 
@@ -84,7 +84,7 @@ useEffect(() => {
   });
 
   if (loading) return <div className="p-6 max-w-7xl mx-auto"><h1 className="text-3xl font-bold mb-6">Audit Programs</h1><p>Loading...</p></div>;
-  if (user?.role?.toUpperCase() !== "MANAGEMENT_REP") return <div className="p-6 max-w-7xl mx-auto"><h1 className="text-3xl font-bold mb-6">Audit Programs</h1><p className="text-red-500">Access denied. Auditor General privileges required.</p></div>;
+  if (user?.roleName?.toUpperCase() !== "MR") return <div className="p-6 max-w-7xl mx-auto"><h1 className="text-3xl font-bold mb-6">Audit Programs</h1><p className="text-red-500">Access denied. Auditor General privileges required.</p></div>;
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
