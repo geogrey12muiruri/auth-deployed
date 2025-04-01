@@ -413,6 +413,7 @@ const createRole = async (req, res) => {
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
+
 const getAllTenants = async (req, res) => {
   try {
     const tenants = await prisma.tenant.findMany({
@@ -520,7 +521,41 @@ const createUser = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+const getUsers = async (req, res) => {
+  const { tenantId, roleId } = req.params; // Use req.params instead of req.query
 
+  try {
+    // Validate tenantId
+    if (!tenantId) {
+      return res.status(400).json({ error: 'Tenant ID is required' });
+    }
+
+    // Build the query
+    const query = {
+      where: { tenantId },
+      include: {
+        role: true, // Include role details
+      },
+    };
+
+    // Add roleId filter if provided
+    if (roleId) {
+      query.where.roleId = roleId;
+    }
+
+    // Fetch users from the database
+    const users = await prisma.user.findMany(query);
+
+    if (users.length === 0) {
+      return res.status(404).json({ message: 'No users found for the specified criteria' });
+    }
+
+    res.status(200).json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error.message);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+};
 // tenant-service/src/controllers/tenant.controller.js
 const getTenantById = async (req, res) => {
   const { tenantId } = req.params;
@@ -538,13 +573,28 @@ const getTenantById = async (req, res) => {
 
 const getRoles = async (req, res) => {
   try {
-    const roles = Object.keys(prisma.enums.UserRole); // Fetch roles from Prisma schema
+    const roles = await prisma.role.findMany({
+      where: { tenantId: req.user.tenantId }, // Fetch roles for the tenant
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        tenantId: true,
+      },
+    });
+
+    if (roles.length === 0) {
+      return res.status(404).json({ message: 'No roles found for the tenant' });
+    }
+
     res.status(200).json(roles);
   } catch (error) {
-    console.error("Error fetching roles:", error);
-    res.status(500).json({ error: "Failed to fetch roles" });
+    console.error('Error fetching roles:', error.message);
+    res.status(500).json({ error: 'Failed to fetch roles' });
   }
 };
+
+
 const getTenantDetails = async (req, res) => {
   const { tenantId } = req.params;
 
@@ -572,6 +622,7 @@ const getTenantDetails = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch tenant details." });
   }
 };
+
 const completeProfile = async (req, res) => {
   const { tenantId } = req.user;
   const { departments, roles } = req.body;
@@ -645,6 +696,7 @@ module.exports = {
   deleteTenant: [authenticateToken, restrictToSuperAdmin, deleteTenant],
   createUser: [authenticateToken, createUser],
   getRoles,
+  getUsers,
   createRole,
   getTenantDetails,
   completeProfile: [authenticateToken, completeProfile],

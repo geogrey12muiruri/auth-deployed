@@ -20,7 +20,9 @@ export default function AssignTeamsPage() {
   const [submitStatus, setSubmitStatus] = useState(null);
   const [auditors, setAuditors] = useState([]);
 
-  useEffect(() => {
+    useEffect(() => {
+    console.log("User object:", user); // Debug log to verify user object
+  
     const fetchAuditProgram = async () => {
       try {
         const response = await fetch(`http://localhost:5004/api/audit-programs/${auditProgramId}`, {
@@ -30,6 +32,8 @@ export default function AssignTeamsPage() {
         const data = await response.json();
         console.log("Fetched audit program:", data); // Debug log
         setAuditProgram(data);
+  
+        // Initialize teams with existing data or defaults
         const initialTeams = {};
         data.audits.forEach((audit) => {
           initialTeams[audit.id] = audit.team || { leader: "", members: [] };
@@ -41,34 +45,50 @@ export default function AssignTeamsPage() {
         setLoading(false);
       }
     };
-
-       const fetchAuditors = async () => {
-      try {
-        const response = await fetch(`http://localhost:5000/api/users?role=AUDITOR&tenantId=${user.tenantId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) throw new Error("Failed to fetch auditors");
-        const auditors = await response.json();
-        setAuditors(auditors);
-      } catch (error) {
-        console.error("Error fetching auditors:", error);
-      }
-    };
-    if (user?.role?.toUpperCase() === "MANAGEMENT_REP") {
+  
+                const fetchAuditors = async () => {
+          try {
+            console.log("Fetching auditors for tenantId:", user.tenantId); // Debug log
+        
+            // Replace this with the actual roleId for AUDITOR
+            const auditorRoleId = "0776ba53-2e43-41a5-92a5-26dba346d1d0"; // Replace with the correct roleId for AUDITOR
+        
+            const response = await fetch(
+              `http://localhost:5001/api/tenants/${user.tenantId}/users/role/${auditorRoleId}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            );
+        
+            if (!response.ok) throw new Error("Failed to fetch auditors");
+            const auditors = await response.json();
+        
+            if (auditors.length === 0) {
+              console.warn("No auditors found for the specified tenant."); // Debug log
+            }
+        
+            setAuditors(auditors);
+          } catch (error) {
+            console.error("Error fetching auditors:", error);
+          }
+        };
+        
+    // Check if the user is the Auditor General (MR role)
+    if (user?.roleName?.toUpperCase() === "MR" || user?.roleName?.toUpperCase() === "AUDITOR GENERAL") {
       fetchAuditProgram();
       fetchAuditors();
     } else {
       setLoading(false);
     }
   }, [token, user, auditProgramId]);
-
+  
   const handleTeamChange = (auditId, field, value) => {
     setTeams((prev) => ({
       ...prev,
       [auditId]: { ...prev[auditId], [field]: value },
     }));
   };
-
+  
   const handleAddMember = (auditId, member) => {
     if (member && !teams[auditId].members.includes(member)) {
       setTeams((prev) => ({
@@ -77,7 +97,7 @@ export default function AssignTeamsPage() {
       }));
     }
   };
-
+  
   const handleSubmit = async () => {
     setSubmitStatus({ loading: true, error: null });
     try {
@@ -101,6 +121,7 @@ export default function AssignTeamsPage() {
     }
   };
 
+
   if (loading) {
     return (
       <div className="p-6 max-w-7xl mx-auto">
@@ -110,7 +131,15 @@ export default function AssignTeamsPage() {
     );
   }
 
-  if (user?.role?.toUpperCase() !== "MANAGEMENT_REP") {
+  if (!user) {
+    console.log("User object is not loaded yet.");
+    return <p>Loading user data...</p>;
+  }
+
+  console.log("User object:", user); // Debug log to verify user object
+  console.log("User roleName:", user?.roleName?.toUpperCase()); // Debug log for roleName
+
+  if (user?.roleName?.toUpperCase() !== "MR" && user?.roleName?.toUpperCase() !== "AUDITOR GENERAL") {
     return (
       <div className="p-6 max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold mb-6">Assign Teams</h1>
@@ -132,7 +161,7 @@ export default function AssignTeamsPage() {
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-bold mb-6">Assign Teams - {auditProgram.name}</h1>
       <div className="space-y-6">
-               {auditProgram.audits.map((audit) => (
+        {auditProgram.audits.map((audit) => (
           <Card key={audit.id}>
             <CardHeader>
               <CardTitle>Audit {audit.id.split("A-")[1]}</CardTitle>

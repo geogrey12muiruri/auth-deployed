@@ -15,7 +15,7 @@ export default function NewProgramPage() {
   const { token, user } = useAuth();
   const [isClient, setIsClient] = useState(false);
   const [tab, setTab] = useState("metadata");
-  const [departments, setDepartments] = useState([]); // Fetched departments
+  const [departments, setDepartments] = useState([]);
   const [newProgram, setNewProgram] = useState({
     name: "",
     auditProgramObjective: "",
@@ -44,7 +44,6 @@ export default function NewProgramPage() {
   useEffect(() => {
     setIsClient(true);
 
-    // Fetch tenant details (reused from Admin's Institution page)
     const fetchTenantDetails = async () => {
       try {
         const response = await fetch(`http://localhost:5001/api/tenants/${user?.tenantId}/details`, {
@@ -52,8 +51,7 @@ export default function NewProgramPage() {
         });
         if (!response.ok) throw new Error("Failed to fetch tenant details");
         const data = await response.json();
-        console.log("Fetched tenant details:", data); // Log the data for debugging
-        setDepartments(data.departments || []); // Extract departments
+        setDepartments(data.departments || []);
       } catch (error) {
         console.error("Error fetching tenant details:", error);
       }
@@ -64,7 +62,6 @@ export default function NewProgramPage() {
     }
   }, [token, user]);
 
-  // Fallback UI to prevent blank rendering
   if (!isClient) return <div className="p-6">Loading client...</div>;
   if (!user) return <div className="p-6">Loading user data...</div>;
   if (user.roleName !== "MR") return <div className="p-6">Unauthorized: Auditor General access only</div>;
@@ -81,37 +78,52 @@ export default function NewProgramPage() {
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
-  
   const handleScopeChange = (departmentId) => {
     setAuditInput((prev) => {
-      const isSelected = prev.scope.includes(departmentId);
-      const updatedScope = isSelected
-        ? prev.scope.filter((id) => id !== departmentId) // Remove if already selected
-        : [...prev.scope, departmentId]; // Add if not selected
+      let updatedScope;
+      if (departmentId === "All") {
+        updatedScope = prev.scope.length === departments.length ? [] : departments.map((dept) => dept.id);
+      } else {
+        const isSelected = prev.scope.includes(departmentId);
+        updatedScope = isSelected
+          ? prev.scope.filter((id) => id !== departmentId)
+          : [...prev.scope, departmentId];
+      }
       return { ...prev, scope: updatedScope };
     });
     if (errors.scope) setErrors((prev) => ({ ...prev, scope: "" }));
   };
 
-  const handleMethodsChange = (method) => {
-    setAuditInput((prev) => {
-      const isSelected = prev.methods.includes(method);
-      const updatedMethods = isSelected
-        ? prev.methods.filter((m) => m !== method) // Remove if already selected
-        : [...prev.methods, method]; // Add if not selected
-      return { ...prev, methods: updatedMethods };
-    });
-    if (errors.methods) setErrors((prev) => ({ ...prev, methods: "" }));
-  };
   const handleCriteriaChange = (criterion) => {
     setAuditInput((prev) => {
-      const isSelected = prev.criteria.includes(criterion);
-      const updatedCriteria = isSelected
-        ? prev.criteria.filter((c) => c !== criterion) // Remove if already selected
-        : [...prev.criteria, criterion]; // Add if not selected
+      let updatedCriteria;
+      if (criterion === "All") {
+        updatedCriteria = prev.criteria.length === auditCriteria.length ? [] : [...auditCriteria];
+      } else {
+        const isSelected = prev.criteria.includes(criterion);
+        updatedCriteria = isSelected
+          ? prev.criteria.filter((c) => c !== criterion)
+          : [...prev.criteria, criterion];
+      }
       return { ...prev, criteria: updatedCriteria };
     });
     if (errors.criteria) setErrors((prev) => ({ ...prev, criteria: "" }));
+  };
+
+  const handleMethodsChange = (method) => {
+    setAuditInput((prev) => {
+      let updatedMethods;
+      if (method === "All") {
+        updatedMethods = prev.methods.length === auditMethods.length ? [] : [...auditMethods];
+      } else {
+        const isSelected = prev.methods.includes(method);
+        updatedMethods = isSelected
+          ? prev.methods.filter((m) => m !== method)
+          : [...prev.methods, method];
+      }
+      return { ...prev, methods: updatedMethods };
+    });
+    if (errors.methods) setErrors((prev) => ({ ...prev, methods: "" }));
   };
 
   const handleObjectiveInputChange = (e) => setObjectiveInput(e.target.value);
@@ -131,7 +143,7 @@ export default function NewProgramPage() {
     if (!auditInput.scope.length) auditErrors.scope = "Scope is required";
     if (!auditInput.specificAuditObjectives.length) auditErrors.specificAuditObjectives = "At least one objective is required";
     if (!auditInput.methods.length) auditErrors.methods = "Methods are required";
-    if (!auditInput.criteria.length) auditErrors.criteria = "Criteria are required"; // Fixed syntax error
+    if (!auditInput.criteria.length) auditErrors.criteria = "Criteria are required";
 
     if (Object.keys(auditErrors).length > 0) {
       setErrors((prev) => ({ ...prev, ...auditErrors }));
@@ -145,7 +157,7 @@ export default function NewProgramPage() {
         {
           ...auditInput,
           id: `A-${Date.now()}`,
-          scope: auditInput.scope.map((id) => departments.find((dept) => dept.id === id)?.name || id), // Convert IDs to names
+          scope: auditInput.scope.map((id) => departments.find((dept) => dept.id === id)?.name || id),
         },
       ],
     }));
@@ -250,20 +262,28 @@ export default function NewProgramPage() {
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700">Audit Scope</label>
-              <div className="grid grid-cols-2 gap-4">
-                {departments.map((dept) => (
-                  <div key={dept.id} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id={`dept-${dept.id}`}
-                      checked={auditInput.scope.includes(dept.id)}
-                      onChange={() => handleScopeChange(dept.id)}
-                      className="w-4 h-4"
-                    />
-                    <label htmlFor={`dept-${dept.id}`} className="text-sm">
+              <Select
+                onValueChange={(value) => handleScopeChange(value)}
+                value={auditInput.scope}
+                multiple
+              >
+                <SelectTrigger className={errors.scope ? "border-red-500" : ""}>
+                  <SelectValue placeholder="Select Audit Scope" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
                       {dept.name}
-                    </label>
-                  </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="mt-2">
+                {auditInput.scope.map((id) => (
+                  <span key={id} className="inline-block bg-gray-200 text-sm px-2 py-1 rounded mr-2">
+                    {departments.find((dept) => dept.id === id)?.name || id}
+                  </span>
                 ))}
               </div>
               {errors.scope && <p className="text-red-500 text-sm">{errors.scope}</p>}
@@ -384,69 +404,113 @@ export default function NewProgramPage() {
         </TabsContent>
 
         <TabsContent value="preview">
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Preview: {newProgram.name || "Unnamed Program"}</h2>
-            <p>Objective: {newProgram.auditProgramObjective || "N/A"}</p>
-            <p>
-              Duration: {newProgram.startDate || "N/A"} - {newProgram.endDate || "N/A"}
-            </p>
-            <Table className="w-full border">
+          <div className="space-y-6 border p-6 rounded-lg bg-white">
+            {/* Header */}
+            <div className="text-left">
+              <h2 className="text-xl font-bold">Mural Dimension</h2>
+              <p className="text-sm">Ruprani House, 2nd Floor, Suite 206</p>
+              <p className="text-sm">P.O Box 8983 - 00100, Nairobi</p>
+              <p className="text-sm">Tel: 0202341573 / 4, 0775-981084</p>
+            </div>
+
+            {/* General Information */}
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold">GENERAL</h3>
+              <p><strong>Organization:</strong> {user?.tenantName || "N/A"}</p>
+              <div>
+                <p>1.2 <strong>Audit Objectives:</strong></p>
+                <ol className="list-decimal list-inside ml-4">
+                  {newProgram.auditProgramObjective ? (
+                    <li>{newProgram.auditProgramObjective}</li>
+                  ) : (
+                    <li>N/A</li>
+                  )}
+                </ol>
+              </div>
+              <p>1.3 <strong>Audit Dates:</strong> {newProgram.startDate && newProgram.endDate ? 
+                `${new Date(newProgram.startDate).toLocaleDateString()} - ${new Date(newProgram.endDate).toLocaleDateString()}` : "N/A"}</p>
+              <p>1.4 <strong>Audit Program Status:</strong> {newProgram.status}</p>
+            </div>
+
+            {/* Audit Table */}
+            <Table className="w-full border border-gray-300">
               <TableHeader>
-                <TableRow>
-                  <TableHead className="border-r w-1/4">Audit Component</TableHead>
+                <TableRow className="bg-gray-100">
+                  <TableHead className="border-r font-semibold py-2">Audit Component</TableHead>
                   {newProgram.audits.map((_, index) => (
-                    <TableHead key={index} className="border-r w-1/4">
-                      {index === 0 ? "First Audit" : `Audit ${index + 1}`}
+                    <TableHead key={index} className="border-r font-semibold py-2">
+                      Audit {index + 1}
                     </TableHead>
                   ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 <TableRow>
-                  <TableCell className="font-semibold border-r break-words">Audit No</TableCell>
+                  <TableCell className="border-r font-medium py-2">Audit No</TableCell>
+                  {newProgram.audits.map((audit, index) => (
+                    <TableCell key={index} className="border-r py-2 break-words">
+                      {audit.id}
+                    </TableCell>
+                  ))}
+                </TableRow>
+                <TableRow className="bg-gray-50">
+                  <TableCell className="border-r font-medium py-2">Scope</TableCell>
+                  {newProgram.audits.map((audit, index) => (
+                    <TableCell key={index} className="border-r py-2 break-words">
+                      {Array.isArray(audit.scope) && audit.scope.length > 0 ? (
+                        <ul className="list-disc list-inside">
+                          {audit.scope.map((item, i) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        "Not specified"
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="border-r font-medium py-2">Objectives</TableCell>
+                  {newProgram.audits.map((audit, index) => (
+                    <TableCell key={index} className="border-r py-2 break-words">
+                      {Array.isArray(audit.specificAuditObjectives) && audit.specificAuditObjectives.length > 0 ? (
+                        <ol className="list-decimal list-inside">
+                          {audit.specificAuditObjectives.map((obj, i) => (
+                            <li key={i}>{obj}</li>
+                          ))}
+                        </ol>
+                      ) : (
+                        "Not specified"
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+                <TableRow className="bg-gray-50">
+                  <TableCell className="border-r font-medium py-2">Methods</TableCell>
+                  {newProgram.audits.map((audit, index) => (
+                    <TableCell key={index} className="border-r py-2 break-words">
+                      {Array.isArray(audit.methods) && audit.methods.length > 0
+                        ? audit.methods.join(", ")
+                        : "Not specified"}
+                    </TableCell>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="border-r font-medium py-2">Criteria</TableCell>
+                  {newProgram.audits.map((audit, index) => (
+                    <TableCell key={index} className="border-r py-2 break-words">
+                      {Array.isArray(audit.criteria) && audit.criteria.length > 0
+                        ? audit.criteria.join(", ")
+                        : "Not specified"}
+                    </TableCell>
+                  ))}
+                </TableRow>
+                <TableRow className="bg-gray-50">
+                  <TableCell className="border-r font-medium py-2">Teams</TableCell>
                   {newProgram.audits.map((_, index) => (
-                    <TableCell key={index} className="border-r break-words">
-                      A-{index + 1}
-                    </TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-semibold border-r break-words">Audit Scope</TableCell>
-                  {newProgram.audits.map((audit, index) => (
-                    <TableCell key={index} className="border-r break-words">
-                      {audit.scope.join(", ")}
-                    </TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-semibold border-r break-words">Specific Audit Objective(s)</TableCell>
-                  {newProgram.audits.map((audit, index) => (
-                    <TableCell key={index} className="border-r break-words">
-                      {audit.specificAuditObjectives.join("; ")}
-                    </TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-semibold border-r break-words">Methods</TableCell>
-                  {newProgram.audits.map((audit, index) => (
-                    <TableCell key={index} className="border-r break-words">
-                      {audit.methods.join(", ")}
-                    </TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-semibold border-r break-words">Criteria</TableCell>
-                  {newProgram.audits.map((audit, index) => (
-                    <TableCell key={index} className="border-r break-words">
-                      {audit.criteria.join(", ")}
-                    </TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-semibold border-r break-words">Teams</TableCell>
-                  {newProgram.audits.map((_, index) => (
-                    <TableCell key={index} className="border-r break-words">
-                      {/* Teams can be blank for now */}
+                    <TableCell key={index} className="border-r py-2 break-words">
+                      {/* Placeholder for team assignment */}
+                      Not Assigned
                     </TableCell>
                   ))}
                 </TableRow>

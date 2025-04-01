@@ -18,6 +18,7 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+// Middleware to authenticate and extract userId from JWT
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -208,7 +209,11 @@ app.post("/api/audits/:id/accept", authenticateToken, async (req, res) => {
 // GET: Fetch Audit Program by ID
 app.get("/api/audit-programs/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { tenantId, role } = req.user;
+  const { tenantId, roleName } = req.user; // Correctly destructure roleName from req.user
+
+  console.log("Fetching audit program by ID:", id); // Debug log
+  console.log("User roleName:", roleName); // Debug log
+  console.log("User tenantId:", tenantId); // Debug log
 
   try {
     const program = await prisma.auditProgram.findUnique({

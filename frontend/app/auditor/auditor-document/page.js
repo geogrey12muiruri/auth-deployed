@@ -217,7 +217,7 @@ const handleView = (doc) => {
             <SelectValue placeholder="Filter by category" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem> {/* Use "all" instead of empty string */}
+            <SelectItem value="all">All</SelectItem> {/* Use "all" instead of empty string */}
             {categories.map((cat) => (
               <SelectItem key={cat} value={cat}>
                 {cat}
@@ -329,7 +329,7 @@ const handleView = (doc) => {
               />
             </div>
             <div>
-              <Label htmlFor="category" className="text-gray-700">Category</Label>
+              <Label htmlFor="category" className="text-gray-700">Classification</Label>
               <Input
                 id="category"
                 name="category"

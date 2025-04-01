@@ -16,11 +16,16 @@ router.post('/tenants/:tenantId/complete-profile', authMiddleware, tenantControl
 router.get('/tenants', tenantController.getAllTenants);
 
 router.get('/tenants/:tenantId/details', authMiddleware, tenantController.getTenantDetails);
+// GET ROLES for a tenant
+
 
 router.post('/tenants/:tenantId/departments', authMiddleware, tenantController.createDepartment);
 router.post('/tenants/:tenantId/roles', authMiddleware, tenantController.createRole);
 
-// Add route for creating users under a tenant
+// GET USERS for a tenant by role
+router.get('/tenants/:tenantId/users/role/:roleId', authMiddleware, tenantController.getUsers);
+
+
 router.post('/tenants/:tenantId/users', authMiddleware, tenantController.createUser);
 
 router.get('/tenants/:tenantId', tenantController.getTenantById);

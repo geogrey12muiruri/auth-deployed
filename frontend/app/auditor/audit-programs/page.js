@@ -24,26 +24,26 @@ export default function AuditProgramsPage() {
   const [auditPrograms, setAuditPrograms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitStatus, setSubmitStatus] = useState({});
-useEffect(() => {
-  const fetchPrograms = async () => {
-    try {
-      const response = await fetch("http://localhost:5004/api/audit-programs", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error("Failed to fetch audit programs");
-      const data = await response.json();
-      console.log("Fetched audit programs:", data); // Debugging
-      setAuditPrograms(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Error fetching audit programs:", error);
-      setAuditPrograms([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-  if (user?.roleName?.toUpperCase() === "MR") fetchPrograms();
-  else setLoading(false);
-}, [token, user]);
+
+  useEffect(() => {
+    const fetchPrograms = async () => {
+      try {
+        const response = await fetch("http://localhost:5004/api/audit-programs", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) throw new Error("Failed to fetch audit programs");
+        const data = await response.json();
+        setAuditPrograms(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Error fetching audit programs:", error);
+        setAuditPrograms([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (user?.roleName?.toUpperCase() === "MR") fetchPrograms();
+    else setLoading(false);
+  }, [token, user]);
 
   const handleCreateProgram = () => router.push("/auditor/new-program");
 
@@ -56,8 +56,7 @@ useEffect(() => {
       });
       if (!response.ok) throw new Error("Failed to submit audit program");
       const updatedProgram = await response.json();
-      console.log(`Audit Program ${id} submitted:`, updatedProgram);
-
+      
       const refreshedResponse = await fetch("http://localhost:5004/api/audit-programs", { headers: { Authorization: `Bearer ${token}` } });
       const refreshedData = await refreshedResponse.json();
       setAuditPrograms(Array.isArray(refreshedData) ? refreshedData : []);
@@ -72,7 +71,7 @@ useEffect(() => {
 
   const handleAssignTeams = (auditProgramId) => router.push(`/auditor/assaign-teams/${auditProgramId}`);
 
-   const filteredPrograms = auditPrograms.filter((program) => {
+  const filteredPrograms = auditPrograms.filter((program) => {
     const status = program.status || "";
     return tab === "active"
       ? status === "Active"
@@ -117,7 +116,6 @@ useEffect(() => {
                   <AccordionItem value={program.id}>
                     <AccordionTrigger>View Audits ({program.audits?.length || 0})</AccordionTrigger>
                     <AccordionContent>
-                      {/* Metadata as Title */}
                       <div className="mb-4 p-3 bg-gray-100 rounded-lg shadow-inner">
                         <h3 className="text-lg font-semibold">Audit Program: {program.name}</h3>
                         <p className="text-sm text-gray-600"><strong>Objective:</strong> {program.auditProgramObjective || "N/A"}</p>
@@ -125,89 +123,84 @@ useEffect(() => {
                         <p className="text-sm text-gray-600"><strong>Status:</strong> {program.status}</p>
                       </div>
 
-                      {/* Vertical Audit Table */}
-                      <Table className="min-w-full border rounded-md shadow-sm">
-                        <TableHeader>
-                          <TableRow className="hover:bg-gray-50">
-                            <TableCell className="font-medium border-r">Team</TableCell>
-                            {program.audits?.map((audit) => (
-                              <TableCell key={audit.id} className="border-r max-w-xs break-words">
-                                {audit.team
-                                  ? `${audit.team.leader || "TBD"} (${audit.team.members?.join(", ") || "None"})`
-                                  : "Not Assigned"}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {/* Audit No Row */}
-                          <TableRow className="hover:bg-gray-50">
-                            <TableCell className="font-medium border-r">Audit No</TableCell>
-                            {program.audits?.map((audit, index) => (
-                              <TableCell key={audit.id} className="border-r text-center max-w-xs break-words">
-                                A-{index + 1}-{audit.auditProgramId.split("AP-")[1]}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                          {/* Scope Row */}
-                          <TableRow className="hover:bg-gray-50">
-                            <TableCell className="font-medium border-r">Scope</TableCell>
-                            {program.audits?.map((audit) => (
-                                                           <TableCell key={audit.id} className="border-r max-w-xs break-words">
-                                <ul className="list-disc list-inside">
-                                  {Array.isArray(audit.scope) && audit.scope.length > 0
-                                    ? audit.scope.map((item, idx) => <li key={idx}>{item}</li>)
-                                    : <li>N/A</li>}
-                                </ul>
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                          {/* Objectives Row */}
-                          <TableRow className="hover:bg-gray-50">
-                            <TableCell className="font-medium border-r">Objectives</TableCell>
-                            {program.audits?.map((audit) => (
-                                                          <TableCell key={audit.id} className="border-r max-w-xs break-words">
-                                <ul className="list-disc list-inside">
-                                  {Array.isArray(audit.specificAuditObjective) && audit.specificAuditObjective.length > 0
-                                    ? audit.specificAuditObjective.map((obj, idx) => <li key={idx}>{obj}</li>)
-                                    : <li>N/A</li>}
-                                </ul>
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                          {/* Methods Row */}
-                          <TableRow className="hover:bg-gray-50">
-                            <TableCell className="font-medium border-r">Methods</TableCell>
-                            {program.audits?.map((audit) => (
-                                                            <TableCell key={audit.id} className="border-r max-w-xs break-words">
-                                {Array.isArray(audit.methods) && audit.methods.length > 0
-                                  ? audit.methods.join(", ")
-                                  : "N/A"}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                          {/* Criteria Row */}
-                          <TableRow className="hover:bg-gray-50">
-                            <TableCell className="font-medium border-r">Criteria</TableCell>
-                            {program.audits?.map((audit) => (
-                                                            <TableCell key={audit.id} className="border-r max-w-xs break-words">
-                                {Array.isArray(audit.criteria) && audit.criteria.length > 0
-                                  ? audit.criteria.join(", ")
-                                  : "N/A"}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                          {/* Team Row */}
-                          <TableRow className="hover:bg-gray-50">
-                            <TableCell className="font-medium border-r">Team</TableCell>
-                            {program.audits?.map((audit) => (
-                              <TableCell key={audit.id} className="border-r max-w-xs break-words">
-                                {audit.team ? `${audit.team.leader || "TBD"} (${audit.team.members?.join(", ") || "None"})` : "Not Assigned"}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        </TableBody>
-                      </Table>
+                      <div className="overflow-x-auto">
+                        <Table className="w-full border border-gray-200">
+                          <TableHeader>
+                            <TableRow className="bg-gray-100">
+                              <TableHead className="w-40 font-semibold border-r py-2 px-4 sticky left-0 bg-gray-100">Audit Component</TableHead>
+                              {program.audits?.map((_, index) => (
+                                <TableHead key={index} className="font-semibold border-r py-2 px-4">
+                                  Audit {index + 1}
+                                </TableHead>
+                              ))}
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            <TableRow className="hover:bg-gray-50">
+                              <TableCell className="w-40 font-medium border-r py-2 px-4 sticky left-0 bg-white">Audit No</TableCell>
+                              {program.audits?.map((audit, index) => (
+                                <TableCell key={audit.id} className="border-r py-2 px-4 break-words">
+                                  A-{index + 1}-{audit.auditProgramId.split("AP-")[1]}
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                            <TableRow className="hover:bg-gray-50 bg-gray-50">
+                              <TableCell className="w-40 font-medium border-r py-2 px-4 sticky left-0 bg-gray-50">Scope</TableCell>
+                              {program.audits?.map((audit) => (
+                                <TableCell key={audit.id} className="border-r py-2 px-4 break-words">
+                                  <ul className="list-disc list-inside">
+                                    {Array.isArray(audit.scope) && audit.scope.length > 0
+                                      ? audit.scope.map((item, idx) => <li key={idx}>{item}</li>)
+                                      : <li>N/A</li>}
+                                  </ul>
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                            <TableRow className="hover:bg-gray-50">
+                              <TableCell className="w-40 font-medium border-r py-2 px-4 sticky left-0 bg-white">Objectives</TableCell>
+                              {program.audits?.map((audit) => (
+                                <TableCell key={audit.id} className="border-r py-2 px-4 break-words">
+                                  <ul className="list-disc list-inside">
+                                    {Array.isArray(audit.specificAuditObjective) && audit.specificAuditObjective.length > 0
+                                      ? audit.specificAuditObjective.map((obj, idx) => <li key={idx}>{obj}</li>)
+                                      : <li>N/A</li>}
+                                  </ul>
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                            <TableRow className="hover:bg-gray-50 bg-gray-50">
+                              <TableCell className="w-40 font-medium border-r py-2 px-4 sticky left-0 bg-gray-50">Methods</TableCell>
+                              {program.audits?.map((audit) => (
+                                <TableCell key={audit.id} className="border-r py-2 px-4 break-words">
+                                  {Array.isArray(audit.methods) && audit.methods.length > 0
+                                    ? audit.methods.join(", ")
+                                    : "N/A"}
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                            <TableRow className="hover:bg-gray-50">
+                              <TableCell className="w-40 font-medium border-r py-2 px-4 sticky left-0 bg-white">Criteria</TableCell>
+                              {program.audits?.map((audit) => (
+                                <TableCell key={audit.id} className="border-r py-2 px-4 break-words">
+                                  {Array.isArray(audit.criteria) && audit.criteria.length > 0
+                                    ? audit.criteria.join(", ")
+                                    : "N/A"}
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                            <TableRow className="hover:bg-gray-50 bg-gray-50">
+                              <TableCell className="w-40 font-medium border-r py-2 px-4 sticky left-0 bg-gray-50">Team</TableCell>
+                              {program.audits?.map((audit) => (
+                                <TableCell key={audit.id} className="border-r py-2 px-4 break-words">
+                                  {audit.team 
+                                    ? `${audit.team.leader || "TBD"} (${audit.team.members?.join(", ") || "None"})` 
+                                    : "Not Assigned"}
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </div>
                       {(!program.audits || program.audits.length === 0) && (
                         <p className="text-center text-muted-foreground mt-4">No audits available</p>
                       )}
@@ -226,7 +219,12 @@ useEffect(() => {
                     </Button>
                   )}
                   {program.status === "Active" && (
-                    <Button variant="default" size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleAssignTeams(program.id)}>
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      className="bg-blue-600 hover:bg-blue-700" 
+                      onClick={() => handleAssignTeams(program.id)}
+                    >
                       Assign Teams
                     </Button>
                   )}

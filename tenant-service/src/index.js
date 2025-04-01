@@ -17,6 +17,38 @@ app.get('/health', (req, res) => {
   res.status(200).json({ message: 'Tenant Service is running' });
 });
 
+// get roles for a tenant
+app.get("/api/tenants/:id/roles", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const roles = await prisma.role.findMany({
+      where: { tenantId: id },
+    });
+    res.json(roles);
+  } catch (error) {
+    console.error("Error fetching roles:", error.message);
+    res.status(500).json({ error: "Failed to fetch roles" });
+  }
+});
+
+// get users for a tenant
+app.get("/api/tenants/:id/users", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const users = await prisma.user.findMany({
+      where: { tenantId: id },
+    });
+    res.json(users);
+  } catch (error) {
+    console.error("Error fetching users:", error.message);
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+});
+
+
+
 // GET: Validate Tenant by ID
 app.get("/api/tenants/:id", async (req, res) => {
   const { id } = req.params;
