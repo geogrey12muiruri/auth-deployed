@@ -109,7 +109,7 @@ services:
       - DATABASE_URL=postgresql://postgres:password@postgres-audit:5432/umsdb?schema=audit
       - ACCESS_TOKEN_SECRET=a8f2b91a87c3a6b7e4d8f19ab6c4e5e2f3d6c9b1d2a8e7f6a4b3c9d8e1f2g5h6
       - PORT=5004
-      - AUTH_SERVICE_URL=http://auth-service:5000 # Add this to allow audit-service to call auth-service
+      - AUTH_SERVICE_URL=http://auth-service:5000
     ports:
       - "5004:5004"
     depends_on:
@@ -117,6 +117,28 @@ services:
         condition: service_healthy
       auth-service:
         condition: service_started
+    networks:
+      - ums-network
+
+  document-service:
+    build:
+      context: ./document-service
+      dockerfile: Dockerfile
+    container_name: document-service
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres-document:5432/umsdb?schema=document
+      - ACCESS_TOKEN_SECRET=a8f2b91a87c3a6b7e4d8f19ab6c4e5e2f3d6c9b1d2a8e7f6a4b3c9d8e1f2g5h6
+      - PORT=5002
+      - AUTH_SERVICE_URL=http://auth-service:5000
+    ports:
+      - "5002:5002"
+    depends_on:
+      postgres-document:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    volumes:
+      - uploads:/app/uploads  # Mount the named volume for uploads
     networks:
       - ums-network
 
@@ -196,6 +218,25 @@ services:
     networks:
       - ums-network
 
+  postgres-document:
+    image: postgres:15
+    container_name: postgres-document
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=umsdb
+    volumes:
+      - postgres-document-data:/var/lib/postgresql/data
+    ports:
+      - "5436:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d umsdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ums-network
+
   redis:
     image: redis:alpine
     container_name: redis
@@ -213,3 +254,5 @@ volumes:
   postgres-tenant-data:
   postgres-user-data:
   postgres-audit-data:
+  postgres-document-data:
+  uploads:  # Define the named volume for document-service uploads

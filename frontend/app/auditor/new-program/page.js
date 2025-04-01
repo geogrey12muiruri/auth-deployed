@@ -10,22 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
-const auditMethods = ["Interviews", "Document Review", "Checklist Completion", "Sampling", "Observation"];
-const auditCriteria = [
-  "ISO Standards Compliance",
-  "System Documentation Compliance",
-  "Departmental Policies and Manuals",
-  "Legal Documentations",
-];
-const allScopes = ["Finance", "HR", "Student Records", "Procurement"];
-
 export default function NewProgramPage() {
-  const [isClient, setIsClient] = useState(false);
-  const [tab, setTab] = useState("metadata");
   const router = useRouter();
   const { token, user } = useAuth();
-  const tenantName = user?.tenantName || user?.tenantId || "N/A"; // Use tenantName or fallback to tenantId
-
+  const [isClient, setIsClient] = useState(false);
+  const [tab, setTab] = useState("metadata");
+  const [departments, setDepartments] = useState([]); // Fetched departments
   const [newProgram, setNewProgram] = useState({
     name: "",
     auditProgramObjective: "",
@@ -43,9 +33,36 @@ export default function NewProgramPage() {
   const [objectiveInput, setObjectiveInput] = useState("");
   const [errors, setErrors] = useState({});
 
+  const auditMethods = ["Interviews", "Document Review", "Checklist Completion", "Sampling", "Observation"];
+  const auditCriteria = [
+    "ISO Standards Compliance",
+    "System Documentation Compliance",
+    "Departmental Policies and Manuals",
+    "Legal Documentations",
+  ];
+
   useEffect(() => {
     setIsClient(true);
-  }, []);
+
+    // Fetch tenant details (reused from Admin's Institution page)
+    const fetchTenantDetails = async () => {
+      try {
+        const response = await fetch(`http://localhost:5001/api/tenants/${user?.tenantId}/details`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) throw new Error("Failed to fetch tenant details");
+        const data = await response.json();
+        console.log("Fetched tenant details:", data); // Log the data for debugging
+        setDepartments(data.departments || []); // Extract departments
+      } catch (error) {
+        console.error("Error fetching tenant details:", error);
+      }
+    };
+
+    if (user?.tenantId) {
+      fetchTenantDetails();
+    }
+  }, [token, user]);
 
   // Fallback UI to prevent blank rendering
   if (!isClient) return <div className="p-6">Loading client...</div>;
@@ -64,36 +81,34 @@ export default function NewProgramPage() {
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
-  const normalizeValue = (value) => (Array.isArray(value) ? value : [value]); // Ensure value is always an array
-
-  const handleScopeChange = (value) => {
-    const normalizedValue = normalizeValue(value);
+  
+  const handleScopeChange = (departmentId) => {
     setAuditInput((prev) => {
-      const updatedScope = normalizedValue.includes("All")
-        ? allScopes
-        : normalizedValue.filter((v) => v !== "All");
+      const isSelected = prev.scope.includes(departmentId);
+      const updatedScope = isSelected
+        ? prev.scope.filter((id) => id !== departmentId) // Remove if already selected
+        : [...prev.scope, departmentId]; // Add if not selected
       return { ...prev, scope: updatedScope };
     });
     if (errors.scope) setErrors((prev) => ({ ...prev, scope: "" }));
   };
 
-  const handleMethodsChange = (value) => {
-    const normalizedValue = normalizeValue(value);
+  const handleMethodsChange = (method) => {
     setAuditInput((prev) => {
-      const updatedMethods = normalizedValue.includes("All")
-        ? auditMethods
-        : normalizedValue.filter((v) => v !== "All");
+      const isSelected = prev.methods.includes(method);
+      const updatedMethods = isSelected
+        ? prev.methods.filter((m) => m !== method) // Remove if already selected
+        : [...prev.methods, method]; // Add if not selected
       return { ...prev, methods: updatedMethods };
     });
     if (errors.methods) setErrors((prev) => ({ ...prev, methods: "" }));
   };
-
-  const handleCriteriaChange = (value) => {
-    const normalizedValue = normalizeValue(value);
+  const handleCriteriaChange = (criterion) => {
     setAuditInput((prev) => {
-      const updatedCriteria = normalizedValue.includes("All")
-        ? auditCriteria
-        : normalizedValue.filter((v) => v !== "All");
+      const isSelected = prev.criteria.includes(criterion);
+      const updatedCriteria = isSelected
+        ? prev.criteria.filter((c) => c !== criterion) // Remove if already selected
+        : [...prev.criteria, criterion]; // Add if not selected
       return { ...prev, criteria: updatedCriteria };
     });
     if (errors.criteria) setErrors((prev) => ({ ...prev, criteria: "" }));
@@ -111,19 +126,12 @@ export default function NewProgramPage() {
     }
   };
 
-  const removeObjective = (index) => {
-    setAuditInput((prev) => ({
-      ...prev,
-      specificAuditObjectives: prev.specificAuditObjectives.filter((_, i) => i !== index),
-    }));
-  };
-
   const addAudit = () => {
     const auditErrors = {};
     if (!auditInput.scope.length) auditErrors.scope = "Scope is required";
     if (!auditInput.specificAuditObjectives.length) auditErrors.specificAuditObjectives = "At least one objective is required";
     if (!auditInput.methods.length) auditErrors.methods = "Methods are required";
-    if (!auditInput.criteria.length) auditErrors.criteria = "Criteria are required";
+    if (!auditInput.criteria.length) auditErrors.criteria = "Criteria are required"; // Fixed syntax error
 
     if (Object.keys(auditErrors).length > 0) {
       setErrors((prev) => ({ ...prev, ...auditErrors }));
@@ -132,54 +140,16 @@ export default function NewProgramPage() {
 
     setNewProgram((prev) => ({
       ...prev,
-      audits: [...prev.audits, { ...auditInput, id: `A-${Date.now()}` }],
+      audits: [
+        ...prev.audits,
+        {
+          ...auditInput,
+          id: `A-${Date.now()}`,
+          scope: auditInput.scope.map((id) => departments.find((dept) => dept.id === id)?.name || id), // Convert IDs to names
+        },
+      ],
     }));
     setAuditInput({ scope: [], specificAuditObjectives: [], methods: [], criteria: [] });
-  };
-
-  const removeSelectedOption = (type, option) => {
-    setAuditInput((prev) => ({
-      ...prev,
-      [type]: prev[type].filter((item) => item !== option),
-    }));
-  };
-
-  const renderSelectedOptions = (options, type) => {
-    if (!Array.isArray(options)) return null;
-    return (
-      <div className="flex flex-wrap gap-2 mt-2">
-        {options.map((option, index) => (
-          <span
-            key={index}
-            className="flex items-center px-3 py-1 text-sm font-medium text-white bg-blue-500 rounded-full"
-          >
-            {option}
-            <button
-              onClick={() => removeSelectedOption(type, option)}
-              className="ml-2 text-white hover:text-gray-300"
-            >
-              ✕
-            </button>
-          </span>
-        ))}
-      </div>
-    );
-  };
-
-  const handleMultiSelectChange = (type, value) => {
-    setAuditInput((prev) => {
-      const normalizedValue = Array.isArray(value) ? value : [value];
-      const currentSelections = prev[type] || [];
-      const updatedSelections = normalizedValue.includes("All")
-        ? type === "scope"
-          ? allScopes
-          : type === "methods"
-          ? auditMethods
-          : auditCriteria
-        : [...new Set([...currentSelections, ...normalizedValue])];
-      return { ...prev, [type]: updatedSelections };
-    });
-    if (errors[type]) setErrors((prev) => ({ ...prev, [type]: "" }));
   };
 
   const submitProgram = async () => {
@@ -192,17 +162,14 @@ export default function NewProgramPage() {
       toast.error("Please add at least one audit.");
       return;
     }
-    console.log("Tenant Name:", user.tenantName);
-    // Optimized payload: Send arrays directly instead of joining into strings
 
-    console.log("User object:", user);
     const payload = {
       name: newProgram.name,
       auditProgramObjective: newProgram.auditProgramObjective || null,
       startDate: newProgram.startDate,
       endDate: newProgram.endDate,
       tenantId: user.tenantId,
-      tenantName: user.tenantName, // This is where tenantName is added
+      tenantName: user.tenantName,
       audits: newProgram.audits.map((audit) => ({
         id: audit.id,
         scope: audit.scope,
@@ -211,9 +178,6 @@ export default function NewProgramPage() {
         criteria: audit.criteria,
       })),
     };
-
-    
-  console.log("Payload being sent:", payload); // Debug the payload
 
     try {
       const response = await fetch("http://localhost:5004/api/audit-programs", {
@@ -241,7 +205,7 @@ export default function NewProgramPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">Create New Audit Program</h1>
-      <p className="text-muted-foreground mb-6">Institution: {tenantName || "N/A"}</p>
+      <p className="text-muted-foreground mb-6">Institution: {user?.tenantName || "N/A"}</p>
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
@@ -252,44 +216,33 @@ export default function NewProgramPage() {
 
         <TabsContent value="metadata">
           <div className="space-y-4">
-            <div>
-              <Input
-                name="name"
-                value={newProgram.name}
-                onChange={handleInputChange}
-                placeholder="Program Name"
-                className={errors.name ? "border-red-500" : ""}
-              />
-              {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
-            </div>
-            <div>
-              <Input
-                name="auditProgramObjective"
-                value={newProgram.auditProgramObjective}
-                onChange={handleInputChange}
-                placeholder="Audit Program Objective"
-              />
-            </div>
-            <div>
-              <Input
-                type="date"
-                name="startDate"
-                value={newProgram.startDate}
-                onChange={handleInputChange}
-                className={errors.startDate ? "border-red-500" : ""}
-              />
-              {errors.startDate && <p className="text-red-500 text-sm">{errors.startDate}</p>}
-            </div>
-            <div>
-              <Input
-                type="date"
-                name="endDate"
-                value={newProgram.endDate}
-                onChange={handleInputChange}
-                className={errors.endDate ? "border-red-500" : ""}
-              />
-              {errors.endDate && <p className="text-red-500 text-sm">{errors.endDate}</p>}
-            </div>
+            <Input
+              name="name"
+              value={newProgram.name}
+              onChange={handleInputChange}
+              placeholder="Program Name"
+              className={errors.name ? "border-red-500" : ""}
+            />
+            <Input
+              name="auditProgramObjective"
+              value={newProgram.auditProgramObjective}
+              onChange={handleInputChange}
+              placeholder="Audit Program Objective"
+            />
+            <Input
+              type="date"
+              name="startDate"
+              value={newProgram.startDate}
+              onChange={handleInputChange}
+              className={errors.startDate ? "border-red-500" : ""}
+            />
+            <Input
+              type="date"
+              name="endDate"
+              value={newProgram.endDate}
+              onChange={handleInputChange}
+              className={errors.endDate ? "border-red-500" : ""}
+            />
           </div>
         </TabsContent>
 
@@ -297,24 +250,22 @@ export default function NewProgramPage() {
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700">Audit Scope</label>
-              <Select
-                onValueChange={(value) => handleMultiSelectChange("scope", value)}
-                value={auditInput.scope}
-                multiple
-              >
-                <SelectTrigger className={errors.scope ? "border-red-500" : ""}>
-                  <SelectValue placeholder="Select Audit Scope" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All">All</SelectItem>
-                  {allScopes.map((scope) => (
-                    <SelectItem key={scope} value={scope}>
-                      {scope}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {renderSelectedOptions(auditInput.scope, "scope")}
+              <div className="grid grid-cols-2 gap-4">
+                {departments.map((dept) => (
+                  <div key={dept.id} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id={`dept-${dept.id}`}
+                      checked={auditInput.scope.includes(dept.id)}
+                      onChange={() => handleScopeChange(dept.id)}
+                      className="w-4 h-4"
+                    />
+                    <label htmlFor={`dept-${dept.id}`} className="text-sm">
+                      {dept.name}
+                    </label>
+                  </div>
+                ))}
+              </div>
               {errors.scope && <p className="text-red-500 text-sm">{errors.scope}</p>}
             </div>
 
@@ -346,7 +297,7 @@ export default function NewProgramPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700">Audit Methods</label>
               <Select
-                onValueChange={(value) => handleMultiSelectChange("methods", value)}
+                onValueChange={(value) => handleMethodsChange(value)}
                 value={auditInput.methods}
                 multiple
               >
@@ -362,14 +313,20 @@ export default function NewProgramPage() {
                   ))}
                 </SelectContent>
               </Select>
-              {renderSelectedOptions(auditInput.methods, "methods")}
+              <div className="mt-2">
+                {auditInput.methods.map((method, index) => (
+                  <span key={index} className="inline-block bg-gray-200 text-sm px-2 py-1 rounded mr-2">
+                    {method}
+                  </span>
+                ))}
+              </div>
               {errors.methods && <p className="text-red-500 text-sm">{errors.methods}</p>}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700">Audit Criteria</label>
               <Select
-                onValueChange={(value) => handleMultiSelectChange("criteria", value)}
+                onValueChange={(value) => handleCriteriaChange(value)}
                 value={auditInput.criteria}
                 multiple
               >
@@ -385,7 +342,13 @@ export default function NewProgramPage() {
                   ))}
                 </SelectContent>
               </Select>
-              {renderSelectedOptions(auditInput.criteria, "criteria")}
+              <div className="mt-2">
+                {auditInput.criteria.map((criterion, index) => (
+                  <span key={index} className="inline-block bg-gray-200 text-sm px-2 py-1 rounded mr-2">
+                    {criterion}
+                  </span>
+                ))}
+              </div>
               {errors.criteria && <p className="text-red-500 text-sm">{errors.criteria}</p>}
             </div>
 

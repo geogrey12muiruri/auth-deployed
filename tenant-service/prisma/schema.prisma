@@ -91,4 +91,5 @@ model User {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   headedDepartment Department? @relation("DepartmentHead")
+    userRole           String?  // Add this field
 }

@@ -2,7 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const bcrypt
-  = require('bcrypt');
+  = require('bcryptjs');
 const dotenv = require('dotenv');
 dotenv.config();
 const { UserRole } = require('@prisma/client');
@@ -58,7 +58,7 @@ const createTenant = async (req, res) => {
   const {
     name,
     domain,
-    logoUrl,
+    logoUrl, // Include logoUrl
     address,
     city,
     state,
@@ -85,6 +85,11 @@ const createTenant = async (req, res) => {
     return res.status(400).json({ error: 'Name, domain, email, type, and adminUser are required' });
   }
 
+  // Validate logoUrl (if provided)
+  if (logoUrl && !/^https?:\/\/.+\.(jpg|jpeg|png|gif|svg)$/.test(logoUrl)) {
+    return res.status(400).json({ error: 'Invalid logo URL. Must be a valid image URL (jpg, jpeg, png, gif, svg).' });
+  }
+
   const { email: adminEmail, firstName, lastName, password } = adminUser;
   if (!adminEmail || !firstName || !lastName || !password) {
     return res.status(400).json({ error: 'Admin user details (email, firstName, lastName, password) are required' });
@@ -100,7 +105,7 @@ const createTenant = async (req, res) => {
       data: {
         name,
         domain,
-        logoUrl,
+        logoUrl, // Save the logoUrl in the database
         address,
         city,
         state,
@@ -164,7 +169,7 @@ const createTenant = async (req, res) => {
       },
     });
     console.log('Admin user created successfully in tenant-service database:', admin);
-    console.log('Role ID being sent to auth-service during registration:', roleId);
+
     // Register the admin user in the auth-service
     try {
       const authResponse = await axios.post(

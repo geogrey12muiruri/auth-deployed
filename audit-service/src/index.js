@@ -49,7 +49,7 @@ const restrictToAdmin = (req, res, next) => {
 };
 
 const restrictToManagementRep = (req, res, next) => {
-  if (req.user?.roleName?.toUpperCase() !== 'MANAGEMENT_REP') {
+  if (req.user?.roleName?.toUpperCase() !== 'MR') {
     return res.status(403).json({ error: 'Management Representative access required' });
   }
   next();
@@ -218,7 +218,7 @@ app.get("/api/audit-programs/:id", authenticateToken, async (req, res) => {
     if (!program) {
       return res.status(404).json({ error: "Audit program not found" });
     }
-    if (role !== "MANAGEMENT_REP" && program.tenantId !== tenantId) {
+    if (roleName !== "MR" && program.tenantId !== tenantId) {
       return res.status(403).json({ error: "Access denied to this audit program" });
     }
     res.json(program);

@@ -36,6 +36,7 @@ export default function TenantsPage() {
   const [formData, setFormData] = useState({
     name: "",
     domain: "",
+    logoUrl: "", // Add logoUrl to the state
     address: "",
     city: "",
     state: "",
@@ -104,7 +105,7 @@ export default function TenantsPage() {
     });
   };
 
-   const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
   
     console.log("Submitting form data:", formData); // Debugging log
@@ -112,6 +113,12 @@ export default function TenantsPage() {
     // Validate required fields
     if (!formData.name || !formData.domain || !formData.email || !formData.type) {
       alert("Please fill in all required fields.");
+      return;
+    }
+  
+    // Validate logoUrl (optional)
+    if (formData.logoUrl && !/^https?:\/\/.+\..+/.test(formData.logoUrl)) {
+      alert("Please provide a valid URL for the logo.");
       return;
     }
   
@@ -160,6 +167,7 @@ export default function TenantsPage() {
       setFormData({
         name: "",
         domain: "",
+        logoUrl: "", // Add logoUrl to the state
         address: "",
         city: "",
         state: "",
@@ -193,6 +201,7 @@ export default function TenantsPage() {
     setFormData({
       name: "",
       domain: "",
+      logoUrl: "", // Add logoUrl to the state
       address: "",
       city: "",
       state: "",
@@ -264,6 +273,7 @@ export default function TenantsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {[{ label: "Name", field: "name", required: true },
                     { label: "Domain", field: "domain", required: true },
+                    { label: "Logo URL", field: "logoUrl" },
                     { label: "Email", field: "email", type: "email", required: true },
                     { label: "Type", field: "type", select: true },
                     { label: "Address", field: "address" },

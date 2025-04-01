@@ -32,7 +32,7 @@ const ACCESS_LEVELS_ALL = [
   "REGISTRAR",
   "STAFF",
   "SUPER_ADMIN",
-  "MR", // Updated from MANAGEMENT_REP to MR
+  "MR", 
   "AUDITOR",
 ];
 
@@ -64,7 +64,7 @@ export default function Sidebar() {
     if (role === "AUDITOR") return "/auditor-staff/audit-programs";
     if (role === "MR") return "/auditor/audit-programs"; // Updated from MANAGEMENT_REP to MR
     if (role === "ADMIN") return "/admin/audit-programs";
-    return "/audit/programs"; // Default route for other roles
+    return "/audit/programs"; 
   };
 
   const SIDEBAR_LINKS = [
@@ -85,7 +85,7 @@ export default function Sidebar() {
         },
         {
           name: "Documents",
-          href: "/documents",
+          href: role === "MR" ? "/auditor/auditor-document" : "/documents", 
           access: ACCESS_LEVELS_ALL,
           icon: File,
         },
