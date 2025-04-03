@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "304315311070",
+    "project_id": "my-project-2aa48",
+    "storage_bucket": "my-project-2aa48.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:304315311070:android:586567d0252d8853adf34f",
+        "android_client_info": {
+          "package_name": "com.company.parrot"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "304315311070-3jpmt1t8hidit8vsr80g6o1igvmlsjpp.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAgZl28MFFBEptDdcecAGX3m5b9nyb2Zyo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "304315311070-3jpmt1t8hidit8vsr80g6o1igvmlsjpp.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

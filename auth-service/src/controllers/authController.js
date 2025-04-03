@@ -21,15 +21,14 @@ const transporter = nodemailer.createTransport({
 const sendOTP = async (email) => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
 
-  // Try storing OTP
   try {
     await redis.setex(`otp:${email}`, 300, otp); // Expires in 5 minutes
     console.log(`✅ OTP stored in Redis: ${otp} for ${email}`);
   } catch (err) {
     console.error("❌ Failed to store OTP in Redis:", err);
+    throw new Error('Failed to store OTP. Please try again later.');
   }
 
-  // Send email
   try {
     await transporter.sendMail({
       to: email,
@@ -39,6 +38,7 @@ const sendOTP = async (email) => {
     console.log(`📩 OTP email sent to ${email}`);
   } catch (err) {
     console.error("❌ Failed to send OTP email:", err);
+    throw new Error('Failed to send OTP email. Please try again later.');
   }
 };
 
@@ -157,7 +157,10 @@ exports.verifyOTP = async (req, res) => {
 
   try {
     const storedOTP = await redis.get(`otp:${email}`);
-    if (!storedOTP || storedOTP !== otp) return res.status(400).json({ message: 'Invalid or expired OTP' });
+    if (!storedOTP || storedOTP !== otp) {
+      console.warn(`Invalid OTP attempt for email: ${email}`);
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
 
     await prisma.user.update({ where: { email }, data: { verified: true } });
     await redis.del(`otp:${email}`);
@@ -380,6 +383,12 @@ exports.getUserById = async (req, res) => {
 };
 
 // Resend OTP
+const resendOTPLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 3, // 3 attempts per IP
+  message: 'Too many OTP resend attempts. Please try again later.',
+});
+
 exports.resendOTP = async (req, res) => {
   const { email } = req.body;
 
@@ -404,7 +413,7 @@ exports.deleteAccount = async (req, res) => {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    await prisma.user.delete({ where: { id: userId } });
+    await prisma.user.update({ where: { id: userId }, data: { isDeleted: true } });
     await redis.del(`refreshToken:${userId}`);
 
     return res.json({ message: 'Account deleted successfully' });
@@ -413,6 +422,20 @@ exports.deleteAccount = async (req, res) => {
     return res.status(500).json({ message: 'Server error during account deletion' });
   }
 };
+exports.logEvent = async (eventType, eventData) => {
+  try {
+    await prisma.eventLog.create({
+      data: {
+        eventType,
+        eventData: JSON.stringify(eventData),
+      },
+    });
+    console.log(`Event logged: ${eventType}`);
+  } catch (error) {
+    console.error('Error logging event:', error.message);
+  }
+};
+
 // Get all users by role and tenant
 exports.getUsersByRoleAndTenant = async (req, res) => {
   const { roleId, tenantId } = req.query;
@@ -451,4 +474,11 @@ exports.loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // 5 attempts per IP
   message: 'Too many login attempts. Please try again later.',
+});
+
+// Enhanced forgotPassword with rate limiter
+exports.forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 3, // 3 attempts per IP
+  message: 'Too many password reset attempts. Please try again later.',
 });

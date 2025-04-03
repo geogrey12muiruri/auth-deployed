@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const { PrismaClient } = require('@prisma/client');
 const connectDB = require('./services/db');
 const routes = require('./routes/index');
+const { consumeEvents } = require('./services/kafka');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -20,6 +21,11 @@ app.use(
 );
 app.use(express.json());
 app.use(morgan('dev'));
+
+// Start consuming Kafka events
+consumeEvents().catch((error) => {
+  console.error('Error starting Kafka consumer:', error.message);
+});
 
 // Database connection
 connectDB();

@@ -40,7 +40,7 @@ import { toast } from 'react-toastify';
 const API_BASE_URL = 'http://localhost:5002';
 
 const fetchDocuments = async (token, search = '', category = '') => {
-  const url = new URL(`${API_BASE_URL}/documents`);
+  const url = new URL(`http://localhost:5002/documents`);
   if (search) url.searchParams.append('title', search);
   if (category && category !== 'all') url.searchParams.append('category', category); // Skip "all"
   const res = await fetch(url, {

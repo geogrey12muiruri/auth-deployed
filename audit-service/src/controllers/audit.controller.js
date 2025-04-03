@@ -1,8 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
-const bcrypt
-  = require('bcryptjs');
+const bcrypt = require('bcryptjs');
 const dotenv = require('dotenv');
 dotenv.config();
 const { UserRole } = require('@prisma/client');
@@ -13,6 +12,7 @@ const kafka = new Kafka({ clientId: 'tenant-service', brokers: ['kafka:9092'] })
 const producer = kafka.producer();
 
 const prisma = new PrismaClient();
+const { publishEvent } = require('../services/kafka');
 
 // Middleware to authenticate and extract userId from JWT
 const authenticateToken = (req, res, next) => {
@@ -357,7 +357,6 @@ const createDepartment = async (req, res) => {
   }
 };
 
-
 const createRole = async (req, res) => {
   const { tenantId } = req.params;
   const { name, description } = req.body;
@@ -403,8 +402,6 @@ const getAllTenants = async (req, res) => {
   }
 };
 
-
-
 // Delete tenant
 const deleteTenant = async (req, res) => {
   const { tenantId } = req.params;
@@ -421,8 +418,7 @@ const deleteTenant = async (req, res) => {
 };
 
 // Create use/
-
- const createUser = async (req, res) => {
+const createUser = async (req, res) => {
   const { tenantId } = req.user;
   const { email, roleId, firstName, lastName, password } = req.body;
 
@@ -533,7 +529,6 @@ const getRoles = async (req, res) => {
   }
 };
 
-
 const getTenantDetails = async (req, res) => {
   const { tenantId } = req.params;
 
@@ -552,13 +547,13 @@ const getTenantDetails = async (req, res) => {
     });
 
     if (!tenant) {
-      return res.status(404).json({ error: "Tenant not found." });
+      return res.status(404).json({ error: 'Tenant not found.' });
     }
 
     res.status(200).json(tenant);
   } catch (error) {
-    console.error("Error fetching tenant details:", error);
-    res.status(500).json({ error: "Failed to fetch tenant details." });
+    console.error('Error fetching tenant details:', error);
+    res.status(500).json({ error: 'Failed to fetch tenant details.' });
   }
 };
 
@@ -567,14 +562,14 @@ const completeProfile = async (req, res) => {
   const { departments, roles } = req.body;
 
   if (!departments || !roles) {
-    return res.status(400).json({ error: "Departments and roles are required" });
+    return res.status(400).json({ error: 'Departments and roles are required' });
   }
 
   try {
     // Validate and create roles
     const createdRoles = await Promise.all(
       roles.map(async (role) => {
-        if (!role.name) throw new Error("Role name is required");
+        if (!role.name) throw new Error('Role name is required');
         return prisma.role.create({
           data: {
             name: role.name,
@@ -589,7 +584,7 @@ const completeProfile = async (req, res) => {
     const createdDepartments = await Promise.all(
       departments.map(async (department) => {
         if (!department.name || !department.code || !department.head) {
-          throw new Error("Department name, code, and head details are required");
+          throw new Error('Department name, code, and head details are required');
         }
 
         // Hash the department head's password
@@ -621,16 +616,39 @@ const completeProfile = async (req, res) => {
       })
     );
 
-    res.status(201).json({ message: "Profile completed successfully", roles: createdRoles, departments: createdDepartments });
+    res.status(201).json({ message: 'Profile completed successfully', roles: createdRoles, departments: createdDepartments });
   } catch (error) {
-    console.error("Error completing profile:", error);
+    console.error('Error completing profile:', error);
     res.status(500).json({ error: `Failed to complete profile: ${error.message}` });
   }
 };
+const submitAuditForApproval = async (req, res) => {
+    const { auditId, adminEmail } = req.body;
+  
+    try {
+      // Business logic for submitting the audit program
+      const auditDetails = await prisma.audit.findUnique({ where: { id: auditId } });
+  
+      if (!auditDetails) {
+        return res.status(404).json({ error: 'Audit program not found' });
+      }
+  
+      // Publish the audit.submitted event
+      await publishEvent('audit.submitted', {
+        adminEmail,
+        auditDetails,
+      });
+  
+      res.status(200).json({ message: 'Audit program submitted for approval', auditDetails });
+    } catch (error) {
+      console.error('Error submitting audit for approval:', error.message);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  };
 
 module.exports = {
   createTenant: [authenticateToken, restrictToSuperAdmin, createTenant],
-  getAllTenants, 
+  getAllTenants,
   getTenantById,
   deleteTenant: [authenticateToken, restrictToSuperAdmin, deleteTenant],
   createUser: [authenticateToken, createUser],
@@ -640,6 +658,7 @@ module.exports = {
   getTenantDetails,
   completeProfile: [authenticateToken, completeProfile],
   createDepartment, // Correctly reference the function
+  submitAuditForApproval,
 };
 
 // Cleanup on shutdown

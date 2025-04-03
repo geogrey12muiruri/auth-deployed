@@ -1,11 +1,10 @@
-// config/firebase.js
 const admin = require('firebase-admin');
-const serviceAccount = require('../path/to/your/serviceAccountKey.json'); // Update this path
+const serviceAccount = require('../../services/my-project-2aa48-firebase-adminsdk-51468-760c5e62e6.json'); // Correct path to the file
 
 // Initialize Firebase
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  storageBucket: 'your-project-id.appspot.com' // Replace with your Firebase Storage bucket
+  storageBucket: 'my-project-2aa48.firebasestorage.app', // Replace with your Firebase Storage bucket
 });
 
 const bucket = admin.storage().bucket();

@@ -1,26 +1,24 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { useAuditContext } from "@/context/audit-context"; // Import AuditContext
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import RoleProtectedRoute from '../../../components/RoleProtectedRoute';
 import DashboardLayout from '../../../components/DashboardLayout';
 
 const AuditorTeamLeaderDashboard = () => {
   const { token, user } = useAuth();
-  const [tab, setTab] = useState("pending");
+  const router = useRouter();
+  const { setAuditData } = useAuditContext(); // Destructure setAuditData from context
+  const [tab, setTab] = useState("active");
   const [auditPrograms, setAuditPrograms] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [openProgram, setOpenProgram] = useState(null); // Track which program's audits are expanded
 
   useEffect(() => {
     const fetchPrograms = async () => {
@@ -34,8 +32,7 @@ const AuditorTeamLeaderDashboard = () => {
         const filteredPrograms = data.map((program) => ({
           ...program,
           isPending: program.audits.some(
-            (audit) =>
-              audit.team?.leader === user?.email && audit.status === "Pending"
+            (audit) => audit.team?.leader === user?.email && audit.status === "Pending"
           ),
           isActive: program.status === "Active",
           isCompleted: program.status === "Completed",
@@ -52,17 +49,25 @@ const AuditorTeamLeaderDashboard = () => {
     if (user?.roleName?.toUpperCase() === "AUDITOR") fetchPrograms();
   }, [token, user]);
 
-  const filteredPrograms = auditPrograms.filter((program) =>
-    tab === "pending"
-      ? program.isPending
-      : tab === "active"
-      ? program.isActive
-      : program.isCompleted
-  );
+  const filteredPrograms = auditPrograms
+    .sort((a, b) => (a.isActive === b.isActive ? 0 : a.isActive ? -1 : 1))
+    .filter((program) =>
+      tab === "pending"
+        ? program.isPending
+        : tab === "active"
+        ? program.isActive
+        : program.isCompleted
+    );
 
-  const handleReplaceMember = (auditId, oldMember, newMember) => {
-    // API call to replace member would go here
-    console.log(`Replacing ${oldMember} with ${newMember} in audit ${auditId}`);
+  const handleToggleAudits = (programId) => {
+    // Toggle the accordion for the selected program
+    setOpenProgram(openProgram === programId ? null : programId);
+  };
+
+  const handleSelectAudit = (program, audit) => {
+    // Set program and audit data in context and navigate to the audit plan page
+    setAuditData(program, audit);
+    router.push(`/auditor-staff/audit-plan/${program.id}/${audit.id}`);
   };
 
   if (loading) {
@@ -90,16 +95,15 @@ const AuditorTeamLeaderDashboard = () => {
             </TabsList>
           </Tabs>
 
-          <div className="space-y-12">
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle>Audit Programs</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {filteredPrograms.map((program) => (
-                  <div key={program.id} className="mb-8">
-                    <div className="mb-4 p-3 bg-gray-100 rounded-lg shadow-inner">
-                      <h3 className="text-lg font-semibold">Audit Program: {program.name}</h3>
+          <div className="space-y-6">
+            {filteredPrograms.length > 0 ? (
+              filteredPrograms.map((program) => (
+                <Card key={program.id} className="shadow-lg">
+                  <CardHeader>
+                    <CardTitle className="text-xl font-semibold">{program.name}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
                       <p className="text-sm text-gray-600">
                         <strong>Objective:</strong> {program.auditProgramObjective || "Not specified"}
                       </p>
@@ -110,112 +114,58 @@ const AuditorTeamLeaderDashboard = () => {
                       <p className="text-sm text-gray-600">
                         <strong>Status:</strong> {program.status}
                       </p>
+                      <p className="text-sm text-gray-600">
+                        <strong>Audits:</strong> {program.audits?.length || 0} audit(s) assigned
+                      </p>
                     </div>
-
-                    <div className="overflow-x-auto">
-                      <Table className="min-w-full border rounded-md shadow-sm">
-                        <TableHeader>
-                          <TableRow className="bg-muted/50">
-                            <TableHead className="font-bold border-r w-48 sticky left-0 bg-gray-200">
-                              Audit Component
-                            </TableHead>
-                            {program.audits?.map((_, index) => (
-                              <TableHead key={index} className="font-bold text-center border-r">
-                                Audit {index + 1}
-                              </TableHead>
+                    <Accordion type="single" collapsible value={openProgram === program.id ? program.id : undefined}>
+                      <AccordionItem value={program.id}>
+                        <AccordionTrigger 
+                          className="mt-4 flex justify-end w-full"
+                          onClick={() => handleToggleAudits(program.id)}
+                        >
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="bg-blue-600 hover:bg-blue-700"
+                          >
+                            Create Audit Plan
+                          </Button>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-4 mt-2">
+                            {program.audits?.map((audit, index) => (
+                              <Card key={audit.id} className="shadow-sm">
+                                <CardContent className="p-4">
+                                  <div className="flex justify-between items-center">
+                                    <div>
+                                      <h4 className="text-md font-semibold">
+                                        Audit {index + 1} ({audit.id})
+                                      </h4>
+                                    </div>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleSelectAudit(program, audit)}
+                                    >
+                                      Select Audit
+                                    </Button>
+                                  </div>
+                                </CardContent>
+                              </Card>
                             ))}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          <TableRow className="hover:bg-gray-50">
-                            <TableCell className="font-medium border-r">Audit No</TableCell>
-                            {program.audits?.map((audit) => (
-                              <TableCell key={audit.id} className="border-r text-center break-words">
-                                {audit.id.split("A-")[1]}-{audit.auditProgramId.split("AP-")[1]}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                          <TableRow className="hover:bg-gray-50">
-                            <TableCell className="font-medium border-r">Scope</TableCell>
-                            {program.audits?.map((audit) => (
-                              <TableCell key={audit.id} className="border-r break-words">
-                                {Array.isArray(audit.scope) && audit.scope.length > 0 ? (
-                                  <ul className="list-disc list-inside">
-                                    {audit.scope.map((item, i) => (
-                                      <li key={i} className="text-sm">{item}</li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  "Not specified"
-                                )}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                          <TableRow className="hover:bg-gray-50">
-                            <TableCell className="font-medium border-r">Objectives</TableCell>
-                            {program.audits?.map((audit) => (
-                              <TableCell key={audit.id} className="border-r break-words">
-                                {Array.isArray(audit.specificAuditObjective) && audit.specificAuditObjective.length > 0 ? (
-                                  <ul className="list-disc list-inside">
-                                    {audit.specificAuditObjective.map((obj, i) => (
-                                      <li key={i} className="text-sm">{obj}</li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  "Not specified"
-                                )}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                          <TableRow className="hover:bg-gray-50">
-                            <TableCell className="font-medium border-r">Methods</TableCell>
-                            {program.audits?.map((audit) => (
-                              <TableCell key={audit.id} className="border-r break-words">
-                                {Array.isArray(audit.methods) && audit.methods.length > 0 ? (
-                                  <ul className="list-disc list-inside">
-                                    {audit.methods.map((method, i) => (
-                                      <li key={i} className="text-sm">{method}</li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  "Not specified"
-                                )}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                          <TableRow className="hover:bg-gray-50">
-                            <TableCell className="font-medium border-r">Criteria</TableCell>
-                            {program.audits?.map((audit) => (
-                              <TableCell key={audit.id} className="border-r break-words">
-                                {Array.isArray(audit.criteria) && audit.criteria.length > 0 ? (
-                                  <ul className="list-disc list-inside">
-                                    {audit.criteria.map((criterion, i) => (
-                                      <li key={i} className="text-sm">{criterion}</li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  "Not specified"
-                                )}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                          <TableRow className="hover:bg-gray-50">
-                            <TableCell className="font-medium border-r">Teams</TableCell>
-                            {program.audits?.map((audit) => (
-                              <TableCell key={audit.id} className="border-r break-words">
-                                {audit.team
-                                  ? `${audit.team.leader || "Leader TBD"} (${audit.team.members?.join(", ") || "No members"})`
-                                  : "Not Assigned"}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <p className="text-center text-muted-foreground">
+                No audit programs found for this category.
+              </p>
+            )}
           </div>
         </div>
       </DashboardLayout>

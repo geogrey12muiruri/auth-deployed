@@ -1,5 +1,7 @@
 import "./globals.css";
-import { AuthProvider } from '../context/auth-context';
+import { AuthProvider } from "../context/auth-context";
+import { AuditProvider } from "../context/audit-context"; // Import AuditProvider
+import { TenantProvider } from "../context/tenant-context"; // Import TenantProvider
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -13,8 +15,12 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <AuthProvider>
-          {children}
-          <ToastContainer position="top-right" autoClose={3000} />
+          <AuditProvider>
+            <TenantProvider>
+              {children}
+              <ToastContainer position="top-right" autoClose={3000} />
+            </TenantProvider>
+          </AuditProvider>
         </AuthProvider>
       </body>
     </html>

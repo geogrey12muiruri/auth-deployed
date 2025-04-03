@@ -1,12 +1,12 @@
 require("dotenv").config();
-
+const { connectProducer } = require('./services/kafka');
 const express = require("express");
 const { PrismaClient } = require("@prisma/client");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const axios = require("axios"); // Add axios for HTTP requests
 
-const app = express();
+consconnectProducer();
 const prisma = new PrismaClient();
 const port = process.env.PORT || 5004;
 
@@ -361,6 +361,42 @@ app.put("/api/audit-programs/:id/reject", authenticateToken, restrictToAdmin, as
   } catch (error) {
     console.error("Error rejecting audit program:", error);
     res.status(500).json({ error: "Failed to reject audit program" });
+  }
+});
+
+// PUT: Update Audit Plan
+app.put("/api/audits/:id/update", authenticateToken, async (req, res) => {
+  const { id } = req.params; // Audit ID
+  const { scope, specificAuditObjective, criteria, methods, team } = req.body; // Updated fields
+  const { tenantId } = req.user; // Tenant ID from the authenticated user
+
+  try {
+    // Fetch the audit to ensure it exists and belongs to the tenant
+    const audit = await prisma.audit.findUnique({
+      where: { id },
+      include: { auditProgram: true },
+    });
+
+    if (!audit || audit.auditProgram.tenantId !== tenantId) {
+      return res.status(403).json({ error: "Unauthorized to update this audit" });
+    }
+
+    // Update the audit with the provided fields
+    const updatedAudit = await prisma.audit.update({
+      where: { id },
+      data: {
+        scope,
+        specificAuditObjective,
+        criteria,
+        methods,
+        team, // Stored as JSON
+      },
+    });
+
+    res.json(updatedAudit);
+  } catch (error) {
+    console.error("Error updating audit plan:", error);
+    res.status(500).json({ error: "Failed to update audit plan" });
   }
 });
 
